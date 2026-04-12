@@ -25,6 +25,7 @@ public struct ResendClient: Sendable {
         )
     }
     
+    @discardableResult
     public func send(
         email: Components.Schemas.SendEmailRequest,
         idempotencyKey: String? = nil
@@ -34,6 +35,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
     
+    @discardableResult
     public func send(
         emails: [Components.Schemas.SendEmailRequest],
         idempotencyKey: String? = nil
@@ -63,6 +65,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateEmail(
         id: String
     ) async throws -> Components.Schemas.UpdateEmailOptions {
@@ -72,6 +75,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func cancelScheduledEmail(
         id: String
     ) async throws -> Components.Schemas.Email {
@@ -156,6 +160,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createDomain(
         _ request: Components.Schemas.CreateDomainRequest
     ) async throws -> Components.Schemas.CreateDomainResponse {
@@ -170,6 +175,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateDomain(
         id: String,
         _ request: Components.Schemas.UpdateDomainOptions
@@ -178,6 +184,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteDomain(
         id: String
     ) async throws -> Components.Schemas.DeleteDomainResponse {
@@ -185,6 +192,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func verifyDomain(
         id: String
     ) async throws -> Components.Schemas.VerifyDomainResponse {
@@ -201,6 +209,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createAPIKey(
         _ request: Components.Schemas.CreateApiKeyRequest
     ) async throws -> Components.Schemas.CreateApiKeyResponse {
@@ -208,6 +217,7 @@ public struct ResendClient: Sendable {
         return try response.created.body.json
     }
 
+    @discardableResult
     public func deleteAPIKey(
         id: String
     ) async throws -> Components.Schemas.DeleteApiKeyResponse {
@@ -224,6 +234,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createTemplate(
         _ request: Components.Schemas.CreateTemplateRequest
     ) async throws -> Components.Schemas.CreateTemplateResponseSuccess {
@@ -238,6 +249,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateTemplate(
         id: String,
         _ request: Components.Schemas.UpdateTemplateOptions
@@ -246,6 +258,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteTemplate(
         id: String
     ) async throws -> Components.Schemas.RemoveTemplateResponseSuccess {
@@ -253,6 +266,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func publishTemplate(
         id: String
     ) async throws -> Components.Schemas.PublishTemplateResponseSuccess {
@@ -260,6 +274,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func duplicateTemplate(
         id: String
     ) async throws -> Components.Schemas.DuplicateTemplateResponseSuccess {
@@ -274,6 +289,7 @@ public struct ResendClient: Sendable {
     }
 
     @available(*, deprecated)
+    @discardableResult
     public func createAudience(
         _ request: Components.Schemas.CreateAudienceOptions
     ) async throws -> Components.Schemas.CreateAudienceResponseSuccess {
@@ -290,6 +306,7 @@ public struct ResendClient: Sendable {
     }
 
     @available(*, deprecated)
+    @discardableResult
     public func deleteAudience(
         id: String
     ) async throws -> Components.Schemas.RemoveAudienceResponseSuccess {
@@ -309,6 +326,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createContact(
         _ request: Components.Schemas.CreateContactOptions
     ) async throws -> Components.Schemas.CreateContactResponseSuccess {
@@ -323,6 +341,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateContact(
         id: String,
         _ request: Components.Schemas.UpdateContactOptions
@@ -331,6 +350,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteContact(
         id: String
     ) async throws -> Components.Schemas.RemoveContactResponseSuccess {
@@ -347,6 +367,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createBroadcast(
         _ request: Components.Schemas.CreateBroadcastOptions
     ) async throws -> Components.Schemas.CreateBroadcastResponseSuccess {
@@ -361,6 +382,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateBroadcast(
         id: String,
         _ request: Components.Schemas.UpdateBroadcastOptions
@@ -369,6 +391,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteBroadcast(
         id: String
     ) async throws -> Components.Schemas.RemoveBroadcastResponseSuccess {
@@ -376,6 +399,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func sendBroadcast(
         id: String,
         _ request: Components.Schemas.SendBroadcastOptions? = nil
@@ -393,6 +417,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createWebhook(
         _ request: Components.Schemas.CreateWebhookRequest
     ) async throws -> Components.Schemas.CreateWebhookResponse {
@@ -407,6 +432,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateWebhook(
         id: String,
         _ request: Components.Schemas.UpdateWebhookRequest
@@ -415,6 +441,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteWebhook(
         id: String
     ) async throws -> Components.Schemas.DeleteWebhookResponse {
@@ -431,6 +458,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createSegment(
         _ request: Components.Schemas.CreateSegmentOptions
     ) async throws -> Components.Schemas.CreateSegmentResponseSuccess {
@@ -445,6 +473,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteSegment(
         id: String
     ) async throws -> Components.Schemas.RemoveSegmentResponseSuccess {
@@ -461,6 +490,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createTopic(
         _ request: Components.Schemas.CreateTopicOptions
     ) async throws -> Components.Schemas.CreateTopicResponseSuccess {
@@ -475,6 +505,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateTopic(
         id: String,
         _ request: Components.Schemas.UpdateTopicOptions
@@ -483,6 +514,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteTopic(
         id: String
     ) async throws -> Components.Schemas.RemoveTopicResponseSuccess {
@@ -499,6 +531,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createContactProperty(
         _ request: Components.Schemas.CreateContactPropertyOptions
     ) async throws -> Components.Schemas.CreateContactPropertyResponseSuccess {
@@ -513,6 +546,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateContactProperty(
         id: String,
         _ request: Components.Schemas.UpdateContactPropertyOptions
@@ -521,6 +555,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteContactProperty(
         id: String
     ) async throws -> Components.Schemas.RemoveContactPropertyResponseSuccess {
@@ -541,6 +576,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func addContactToSegment(
         contactID: String,
         segmentID: String
@@ -551,6 +587,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func removeContactFromSegment(
         contactID: String,
         segmentID: String
@@ -574,6 +611,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateContactTopics(
         contactID: String,
         _ request: Components.Schemas.UpdateContactTopicsOptions
@@ -618,6 +656,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createAutomation(
         _ request: Components.Schemas.CreateAutomationRequest
     ) async throws -> Components.Schemas.CreateAutomationResponse {
@@ -632,6 +671,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateAutomation(
         id: String,
         _ request: Components.Schemas.PatchAutomationRequest
@@ -640,6 +680,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteAutomation(
         id: String
     ) async throws -> Components.Schemas.DeleteAutomationResponse {
@@ -647,6 +688,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func stopAutomation(
         id: String
     ) async throws -> Components.Schemas.StopAutomationResponse {
@@ -687,6 +729,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func createEvent(
         _ request: Components.Schemas.CreateEventRequest
     ) async throws -> Components.Schemas.CreateEventResponse {
@@ -694,6 +737,7 @@ public struct ResendClient: Sendable {
         return try response.created.body.json
     }
 
+    @discardableResult
     public func sendEvent(
         _ request: Components.Schemas.SendEventRequest
     ) async throws -> Components.Schemas.SendEventResponse {
@@ -708,6 +752,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func updateEvent(
         identifier: String,
         _ request: Components.Schemas.UpdateEventRequest
@@ -716,6 +761,7 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
     public func deleteEvent(
         identifier: String
     ) async throws -> Components.Schemas.RemoveEventResponse {

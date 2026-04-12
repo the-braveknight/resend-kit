@@ -52,8 +52,7 @@ let request = Components.Schemas.SendEmailRequest(
     text: "Sent from ResendKit"
 )
 
-let response = try await client.send(email: request)
-print(response.id ?? "")
+try await client.send(email: request)
 ```
 
 ## Attachments
@@ -92,7 +91,7 @@ let request = Components.Schemas.SendEmailRequest(
     attachments: [attachment]
 )
 
-_ = try await client.send(email: request)
+try await client.send(email: request)
 ```
 
 ## What Is Generated vs Handwritten
