@@ -186,6 +186,7 @@ This keeps most of the API generated, while working around the generator's binar
 - templates
 - audiences
 - contacts
+- contact imports
 - broadcasts
 - webhooks
 - segments

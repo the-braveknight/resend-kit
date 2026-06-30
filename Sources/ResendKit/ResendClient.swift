@@ -200,6 +200,34 @@ public struct ResendClient: Sendable {
         return try response.ok.body.json
     }
 
+    @discardableResult
+    public func claimDomain(
+        _ request: Components.Schemas.CreateDomainClaimRequest
+    ) async throws -> Components.Schemas.DomainClaim {
+        let response = try await client.postDomainsClaim(body: .json(request))
+        switch response {
+        case .ok(let ok):
+            return try ok.body.json
+        default:
+            return try response.created.body.json
+        }
+    }
+
+    public func getDomainClaim(
+        domainID: String
+    ) async throws -> Components.Schemas.DomainClaim {
+        let response = try await client.getDomainsDomainIdClaim(path: .init(domainId: domainID))
+        return try response.ok.body.json
+    }
+
+    @discardableResult
+    public func verifyDomainClaim(
+        domainID: String
+    ) async throws -> Components.Schemas.DomainClaim {
+        let response = try await client.postDomainsDomainIdClaimVerify(path: .init(domainId: domainID))
+        return try response.ok.body.json
+    }
+
     public func listAPIKeys(
         limit: Int? = nil,
         after: String? = nil,
@@ -355,6 +383,38 @@ public struct ResendClient: Sendable {
         id: String
     ) async throws -> Components.Schemas.RemoveContactResponseSuccess {
         let response = try await client.deleteContactsId(path: .init(id: id))
+        return try response.ok.body.json
+    }
+
+    public func listContactImports(
+        status: String? = nil,
+        limit: Int? = nil,
+        after: String? = nil,
+        before: String? = nil
+    ) async throws -> Components.Schemas.ListContactImportsResponseSuccess {
+        let response = try await client.getContactsImports(
+            query: .init(
+                status: status.flatMap(Operations.GetContactsImports.Input.Query.StatusPayload.init(rawValue:)),
+                limit: limit,
+                after: after,
+                before: before
+            )
+        )
+        return try response.ok.body.json
+    }
+
+    @discardableResult
+    public func createContactImport(
+        _ body: OpenAPIRuntime.MultipartBody<Components.Schemas.CreateContactImportOptions>
+    ) async throws -> Components.Schemas.CreateContactImportResponseSuccess {
+        let response = try await client.postContactsImports(body: .multipartForm(body))
+        return try response.created.body.json
+    }
+
+    public func getContactImport(
+        id: String
+    ) async throws -> Components.Schemas.GetContactImportResponseSuccess {
+        let response = try await client.getContactsImportsId(path: .init(id: id))
         return try response.ok.body.json
     }
 

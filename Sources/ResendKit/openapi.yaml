@@ -1,4 +1,4 @@
-openapi: 3.0.3
+openapi: 3.1.2
 info:
   title: Resend
   version: 1.5.0
@@ -22,6 +22,8 @@ tags:
     description: Retrieve and manage received emails and attachments through the Resend API.
   - name: Webhooks
     description: Create and manage Webhooks through the Resend API.
+  - name: Webhook Events
+    description: Real-time event notifications delivered to your registered webhook endpoint. Each delivery is signed using Svix headers (`svix-id`, `svix-timestamp`, `svix-signature`); verify them before acting on the payload.
   - name: Templates
     description: Create and manage Templates through the Resend API.
   - name: Broadcasts
@@ -461,6 +463,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/VerifyDomainResponse'
+  /domains/claim:
+    post:
+      tags:
+        - Domains
+      summary: Claim a domain
+      description: >-
+        Start a claim for a domain that another Resend account has already
+        verified. The domain is recreated under your account with fresh DKIM
+        keys, so the previous account's DNS records cannot be reused. Returns a
+        TXT record to add to your DNS to prove ownership. Uses the same request
+        body as creating a domain.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateDomainClaimRequest'
+      responses:
+        '201':
+          description: Claim created.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainClaim'
+        '200':
+          description: An identical pending claim already existed and was returned unchanged.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainClaim'
+  /domains/{domain_id}/claim:
+    get:
+      tags:
+        - Domains
+      summary: Retrieve a domain claim
+      description: Retrieve the latest claim for the placeholder domain created by the claim.
+      parameters:
+        - name: domain_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the placeholder domain created by the claim.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainClaim'
+  /domains/{domain_id}/claim/verify:
+    post:
+      tags:
+        - Domains
+      summary: Verify a domain claim
+      description: >-
+        Trigger asynchronous DNS verification and ownership transfer for a
+        domain claim. The claim stays `pending` while verification runs; poll
+        the retrieve endpoint for status. Once `completed`, the transferred
+        domain has new DKIM records that must be added to DNS and verified via
+        the standard domain verify endpoint.
+      parameters:
+        - name: domain_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the placeholder domain created by the claim.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DomainClaim'
   /api-keys:
     post:
       tags:
@@ -753,6 +829,70 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ListContactsResponseSuccess'
+  /contacts/imports:
+    post:
+      tags:
+        - Contacts
+      summary: Create a contact import
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CreateContactImportOptions'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateContactImportResponseSuccess'
+    get:
+      tags:
+        - Contacts
+      summary: Retrieve a list of contact imports
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - queued
+              - in_progress
+              - completed
+              - failed
+          description: Filter contact imports by status.
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationAfter'
+        - $ref: '#/components/parameters/PaginationBefore'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListContactImportsResponseSuccess'
+  /contacts/imports/{id}:
+    get:
+      tags:
+        - Contacts
+      summary: Retrieve a single contact import
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The Contact Import ID.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetContactImportResponseSuccess'
   /contacts/{id}:
     get:
       tags:
@@ -1735,6 +1875,262 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RemoveEventResponse'
+webhooks:
+  email.sent:
+    post:
+      summary: Email sent
+      description: Occurs whenever the API request was successful. Resend will attempt to deliver the message to the recipient's mail server.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailSentEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.delivered:
+    post:
+      summary: Email delivered
+      description: Occurs whenever Resend successfully delivered the email to the recipient's mail server.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDeliveredEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.delivery_delayed:
+    post:
+      summary: Email delivery delayed
+      description: Occurs whenever the email couldn't be delivered due to a temporary issue, such as the recipient's inbox being full or the receiving server experiencing a transient issue.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailDeliveryDelayedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.bounced:
+    post:
+      summary: Email bounced
+      description: Occurs whenever the recipient's mail server permanently rejected the email.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailBouncedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.complained:
+    post:
+      summary: Email complained
+      description: Occurs whenever the email was successfully delivered, but the recipient marked it as spam.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailComplainedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.opened:
+    post:
+      summary: Email opened
+      description: Occurs whenever the recipient opened the email. Requires open tracking to be enabled.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailOpenedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.clicked:
+    post:
+      summary: Email clicked
+      description: Occurs whenever the recipient clicks on an email link. Requires click tracking to be enabled.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailClickedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.failed:
+    post:
+      summary: Email failed
+      description: Occurs whenever the email failed to send due to an error such as invalid recipients, API key problems, domain verification issues, email quota limits, or other sending failures.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailFailedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.scheduled:
+    post:
+      summary: Email scheduled
+      description: Occurs whenever the email is scheduled to be sent.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailScheduledEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.suppressed:
+    post:
+      summary: Email suppressed
+      description: Occurs whenever the email is suppressed by Resend, such as when the recipient's address is on the account-level suppression list.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailSuppressedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  email.received:
+    post:
+      summary: Email received
+      description: Occurs whenever Resend successfully receives an inbound email on a receiving domain.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/EmailReceivedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  contact.created:
+    post:
+      summary: Contact created
+      description: 'Occurs whenever a contact was successfully created. Note: when importing multiple contacts via CSV, this event is not triggered.'
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactCreatedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  contact.updated:
+    post:
+      summary: Contact updated
+      description: Occurs whenever a contact was successfully updated.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactUpdatedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  contact.deleted:
+    post:
+      summary: Contact deleted
+      description: Occurs whenever a contact was successfully deleted.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ContactDeletedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  domain.created:
+    post:
+      summary: Domain created
+      description: Occurs when a domain was successfully created.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainCreatedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  domain.updated:
+    post:
+      summary: Domain updated
+      description: Occurs when a domain was successfully updated.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainUpdatedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
+  domain.deleted:
+    post:
+      summary: Domain deleted
+      description: Occurs when a domain was successfully deleted.
+      tags:
+        - Webhook Events
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DomainDeletedEvent'
+      responses:
+        '2XX':
+          description: Return any 2xx status code to acknowledge receipt of the event.
 components:
   securitySchemes:
     bearerAuth:
@@ -1904,6 +2300,10 @@ components:
           type: string
           description: The ID of the email.
           example: '4ef9a417-02e9-4d39-ad75-9611e0fcc33c'
+        message_id:
+          type: string
+          description: The Message-ID header value of the email.
+          example: '<202301010000.4ef9a417@email.example.com>'
         to:
           type: array
           items:
@@ -1948,6 +2348,19 @@ components:
         last_event:
           type: string
           description: The status of the email.
+          enum:
+            - bounced
+            - canceled
+            - clicked
+            - complained
+            - delivered
+            - delivery_delayed
+            - failed
+            - opened
+            - queued
+            - scheduled
+            - sent
+            - suppressed
           example: 'delivered'
     ListEmailsResponse:
       type: object
@@ -2045,6 +2458,13 @@ components:
           description: The date and time the domain was created.
         status:
           type: string
+          enum:
+            - pending
+            - verified
+            - failed
+            - not_started
+            - partially_verified
+            - partially_failed
           description: The status of the domain.
         capabilities:
           $ref: '#/components/schemas/DomainCapabilities'
@@ -2092,7 +2512,8 @@ components:
             - DKIM
             - Receiving
             - Tracking
-          description: The type of record (SPF for sending, DKIM for sending, Receiving for inbound emails, Tracking for click and open tracking).
+            - TrackingCAA
+          description: The type of record (SPF for sending, DKIM for sending, Receiving for inbound emails, Tracking & TrackingCAA for click and open tracking).
         name:
           type: string
           description: The name of the DNS record.
@@ -2102,6 +2523,7 @@ components:
             - MX
             - TXT
             - CNAME
+            - CAA
           description: The DNS record type.
         ttl:
           type: string
@@ -2138,6 +2560,13 @@ components:
           example: 'example.com'
         status:
           type: string
+          enum:
+            - pending
+            - verified
+            - failed
+            - not_started
+            - partially_verified
+            - partially_failed
           description: The status of the domain.
           example: 'not_started'
         created_at:
@@ -2164,6 +2593,125 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/DomainRecord'
+    CreateDomainClaimRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The name of the domain you want to claim.
+        region:
+          type: string
+          enum:
+            - us-east-1
+            - eu-west-1
+            - sa-east-1
+            - ap-northeast-1
+          default: us-east-1
+          description: The region where emails will be sent from. Possible values are us-east-1 | eu-west-1 | sa-east-1 | ap-northeast-1
+        custom_return_path:
+          type: string
+          default: send
+          description: For advanced use cases, choose a subdomain for the Return-Path address. Defaults to 'send' (i.e., send.yourdomain.tld).
+        open_tracking:
+          type: boolean
+          description: Track the open rate of each email.
+        click_tracking:
+          type: boolean
+          description: Track clicks within the body of each HTML email.
+        tracking_subdomain:
+          type: string
+          description: The subdomain to use for click and open tracking.
+    DomainClaimRecord:
+      type: object
+      description: The TXT record to add to your DNS to prove ownership of the claimed domain.
+      properties:
+        type:
+          type: string
+          enum:
+            - TXT
+          description: The DNS record type. Always TXT for domain claims.
+          example: 'TXT'
+        name:
+          type: string
+          description: The name of the DNS record (the domain being claimed).
+          example: 'example.com'
+        value:
+          type: string
+          description: The value of the TXT record.
+          example: 'resend-domain-verification=abc123'
+        ttl:
+          type: string
+          description: The time to live for the record.
+          example: 'Auto'
+    DomainClaim:
+      type: object
+      properties:
+        object:
+          type: string
+          description: The type of object.
+          example: 'domain_claim'
+        id:
+          type: string
+          description: The ID of the claim.
+          example: 'd91cd9bd-1176-453e-8fc1-35364d380206'
+        name:
+          type: string
+          description: The name of the domain being claimed.
+          example: 'example.com'
+        status:
+          type: string
+          enum:
+            - pending
+            - verified
+            - completed
+            - blocked
+            - expired
+            - superseded
+            - canceled
+            - failed
+          description: The status of the claim.
+          example: 'pending'
+        domain_id:
+          type: [string, "null"]
+          description: The ID of the placeholder domain created for the claim.
+          example: 'a1b2c3d4-1176-453e-8fc1-35364d380206'
+        region:
+          type: [string, "null"]
+          enum:
+            - us-east-1
+            - eu-west-1
+            - sa-east-1
+            - ap-northeast-1
+            - null
+          description: The region where the claimed domain will send from.
+          example: 'us-east-1'
+        record:
+          $ref: '#/components/schemas/DomainClaimRecord'
+        blocked_reason:
+          type: [string, "null"]
+          enum:
+            - grace_period
+            - recent_owner_activity
+            - pending_scheduled_emails
+            - null
+          description: Why the claim is currently blocked, if applicable.
+          example: null
+        failure_reason:
+          type: [string, "null"]
+          description: Why the claim failed, if applicable.
+          example: null
+        created_at:
+          type: string
+          format: date-time
+          description: The date and time the claim was created.
+          example: '2023-04-26T20:21:26.347412+00:00'
+        expires_at:
+          type: string
+          format: date-time
+          description: The date and time the claim expires if not verified.
+          example: '2023-05-03T20:21:26.347412+00:00'
     VerifyDomainResponse:
       type: object
       properties:
@@ -2203,6 +2751,13 @@ components:
           example: 'example.com'
         status:
           type: string
+          enum:
+            - pending
+            - verified
+            - failed
+            - not_started
+            - partially_verified
+            - partially_failed
           description: The status of the domain.
           example: 'not_started'
         created_at:
@@ -2297,9 +2852,8 @@ components:
           format: date-time
           description: The date and time the API key was created.
         last_used_at:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: The date and time the API key was last used.
     DeleteApiKeyResponse:
       type: object
@@ -2587,6 +3141,122 @@ components:
                 type: boolean
                 description: Indicates if the contact is unsubscribed.
                 example: false
+    CreateContactImportOptions:
+      type: object
+      required:
+        - file
+      properties:
+        file:
+          type: string
+          format: binary
+          description: CSV file to import. Maximum size is 50MB.
+        column_map:
+          type: string
+          description: JSON-encoded object mapping contact fields and custom property keys to CSV column names. Supports `email`, `first_name`, `last_name`, `unsubscribed`, and `properties`. Custom property mappings can include `type` as `string`, `number`, or `boolean`; defaults to `string`.
+          example: '{"email":"Email","first_name":"First Name","last_name":"Last Name","unsubscribed":"Unsubscribed","properties":{"plan":{"column":"Plan","type":"string"}}}'
+        on_conflict:
+          type: string
+          enum:
+            - upsert
+            - skip
+          default: skip
+          description: Strategy to use when an imported contact already exists.
+          example: skip
+        segments:
+          type: string
+          description: JSON-encoded array of segments to add imported contacts to.
+          example: '[{"id":"78261eea-8f8b-4381-83c6-79fa7120f1cf"}]'
+        topics:
+          type: string
+          description: JSON-encoded array of topic subscriptions to apply to imported contacts. Each `subscription` must be `opt_in` or `opt_out`.
+          example: '[{"id":"b6d24b8e-af0b-4c3c-be0c-359bbd97381e","subscription":"opt_in"}]'
+    CreateContactImportResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: contact_import
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the created contact import.
+          example: 479e3145-dd38-476b-932c-529ceb705947
+    ContactImportCounts:
+      type: object
+      properties:
+        total:
+          type: integer
+          description: Total number of rows processed by the import.
+          example: 100
+        created:
+          type: integer
+          description: Number of contacts created by the import.
+          example: 80
+        updated:
+          type: integer
+          description: Number of contacts updated by the import.
+          example: 10
+        skipped:
+          type: integer
+          description: Number of rows skipped by the import.
+          example: 5
+        failed:
+          type: integer
+          description: Number of rows that failed during the import.
+          example: 5
+    ContactImport:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: contact_import
+        id:
+          type: string
+          format: uuid
+          description: Unique identifier for the contact import.
+          example: 479e3145-dd38-476b-932c-529ceb705947
+        status:
+          type: string
+          enum:
+            - queued
+            - in_progress
+            - completed
+            - failed
+          description: Current status of the contact import.
+          example: completed
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp indicating when the contact import was created.
+          example: "2023-10-06T23:47:56.678Z"
+        completed_at:
+          type: [string, "null"]
+          format: date-time
+          description: Timestamp indicating when the contact import completed.
+          example: "2023-10-06T23:50:56.678Z"
+        counts:
+          $ref: '#/components/schemas/ContactImportCounts'
+    GetContactImportResponseSuccess:
+      allOf:
+        - $ref: '#/components/schemas/ContactImport'
+    ListContactImportsResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: list
+        has_more:
+          type: boolean
+          description: Indicates if there are more results available.
+          example: false
+        data:
+          type: array
+          description: Array containing contact imports.
+          items:
+            $ref: '#/components/schemas/ContactImport'
     CreateBroadcastOptions:
       type: object
       required:
@@ -2716,13 +3386,11 @@ components:
           description: Name of the broadcast.
           example: November announcements
         audience_id:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: "Deprecated: use `segment_id` instead. Unique identifier of the segment this broadcast will be sent to."
           deprecated: true
         segment_id:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: Unique identifier of the segment this broadcast will be sent to.
         from:
           type: string
@@ -2761,18 +3429,15 @@ components:
           description: Timestamp indicating when the broadcast was sent.
           example: "2023-10-06T22:59:55.977Z"
         text:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The plain text version of the broadcast content.
           example: 'Hello {{{FIRST_NAME|there}}}!'
         html:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The HTML version of the broadcast content.
           example: '<p>Hello {{{FIRST_NAME|there}}}!</p>'
         topic_id:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The topic ID that the broadcast is scoped to.
           example: b6d24b8e-af0b-4c3c-be0c-359bbd97381e
     UpdateBroadcastOptions:
@@ -2864,6 +3529,7 @@ components:
           example: '660e8400-e29b-41d4-a716-446655440000'
         filename:
           type: string
+          nullable: true
           description: The filename of the attachment.
           example: 'document.pdf'
         content_type:
@@ -2876,6 +3542,7 @@ components:
           example: 'img001'
         content_disposition:
           type: string
+          nullable: true
           enum:
             - inline
             - attachment
@@ -2918,6 +3585,7 @@ components:
                 example: '660e8400-e29b-41d4-a716-446655440000'
               filename:
                 type: string
+                nullable: true
                 description: The filename of the attachment.
                 example: 'document.pdf'
               content_type:
@@ -2930,6 +3598,7 @@ components:
                 example: 'img001'
               content_disposition:
                 type: string
+                nullable: true
                 enum:
                   - inline
                   - attachment
@@ -2977,41 +3646,35 @@ components:
         message_id:
           type: string
           description: The unique message ID from the email headers.
-          example: '<message-id@example.com>'
+          example: '<message-id@email.example.com>'
         bcc:
-          type: array
+          type: [array, "null"]
           items:
             type: string
-          nullable: true
           description: The BCC recipients.
           example: []
         cc:
-          type: array
+          type: [array, "null"]
           items:
             type: string
-          nullable: true
           description: The CC recipients.
           example: []
         reply_to:
-          type: array
+          type: [array, "null"]
           items:
             type: string
-          nullable: true
           description: The reply-to addresses.
           example: []
         html:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The HTML content of the email.
           example: '<p>Email content</p>'
         text:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The plain text content of the email.
           example: 'Email content'
         headers:
-          type: object
-          nullable: true
+          type: [object, "null"]
           description: The email headers.
           example: {'X-Custom-Header': 'value'}
         created_at:
@@ -3031,6 +3694,7 @@ components:
                 description: The ID of the attachment.
               filename:
                 type: string
+                nullable: true
                 description: The filename of the attachment.
               content_type:
                 type: string
@@ -3040,6 +3704,7 @@ components:
                 description: The content ID for inline attachments.
               content_disposition:
                 type: string
+                nullable: true
                 enum:
                   - inline
                   - attachment
@@ -3080,31 +3745,27 @@ components:
                 description: The sender email address.
                 example: 'sender@example.com'
               subject:
-                type: string
-                nullable: true
+                type: [string, "null"]
                 description: The email subject.
                 example: 'Hello World'
               message_id:
                 type: string
                 description: The unique message ID from the email headers.
-                example: '<message-id@example.com>'
+                example: '<message-id@email.example.com>'
               bcc:
-                type: array
+                type: [array, "null"]
                 items:
                   type: string
-                nullable: true
                 description: The BCC recipients.
               cc:
-                type: array
+                type: [array, "null"]
                 items:
                   type: string
-                nullable: true
                 description: The CC recipients.
               reply_to:
-                type: array
+                type: [array, "null"]
                 items:
                   type: string
-                nullable: true
                 description: The reply-to addresses.
               created_at:
                 type: string
@@ -3123,6 +3784,7 @@ components:
                       description: The ID of the attachment.
                     filename:
                       type: string
+                      nullable: true
                       description: The filename of the attachment.
                     content_type:
                       type: string
@@ -3132,6 +3794,7 @@ components:
                       description: The content ID for inline attachments.
                     content_disposition:
                       type: string
+                      nullable: true
                       enum:
                         - inline
                         - attachment
@@ -3155,7 +3818,7 @@ components:
             type: string
           minItems: 1
           description: Array of event types to subscribe to.
-          example: ['email.sent', 'email.delivered', 'email.bounced']
+          example: ['email.sent', 'email.delivered', 'email.bounced', 'email.suppressed']
     CreateWebhookResponse:
       type: object
       properties:
@@ -3189,10 +3852,9 @@ components:
           description: The URL where webhook events are sent.
           example: 'https://webhook.example.com/handler'
         events:
-          type: array
+          type: [array, "null"]
           items:
             type: string
-          nullable: true
           description: Array of event types subscribed to.
           example: ['email.sent', 'email.delivered']
         status:
@@ -3235,10 +3897,9 @@ components:
                 description: The URL where webhook events are sent.
                 example: 'https://webhook.example.com/handler'
               events:
-                type: array
+                type: [array, "null"]
                 items:
                   type: string
-                nullable: true
                 description: Array of event types subscribed to.
                 example: ['email.sent']
               status:
@@ -3380,10 +4041,9 @@ components:
           type: string
           description: Email subject.
         reply_to:
-          type: array
+          type: [array, "null"]
           items:
             type: string
-          nullable: true
           description: Reply-to email addresses.
         html:
           type: string
@@ -3408,10 +4068,9 @@ components:
           description: The publication status of the template.
           enum: [draft, published]
         published_at:
-          type: string
+          type: [string, "null"]
           format: date-time
           description: Timestamp indicating when the template was published.
-          nullable: true
         has_unpublished_versions:
           type: boolean
           description: Indicates whether the template has unpublished versions.
@@ -3429,9 +4088,8 @@ components:
           description: The publication status of the template.
           enum: [draft, published]
         published_at:
-          type: string
+          type: [string, "null"]
           format: date-time
-          nullable: true
           description: Timestamp indicating when the template was published.
         created_at:
           type: string
@@ -4116,8 +4774,7 @@ components:
           type: integer
           description: The HTTP status code of the response.
         user_agent:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The user agent of the request.
     Log:
       type: object
@@ -4151,14 +4808,13 @@ components:
           type: integer
           description: The HTTP status code of the response.
         user_agent:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The user agent of the request.
         request_body:
-          nullable: true
+          type: [object, "null"]
           description: The request body sent to the API.
         response_body:
-          nullable: true
+          type: [object, "null"]
           description: The response body returned by the API.
     ListLogsResponse:
       type: object
@@ -4180,13 +4836,13 @@ components:
       type: object
       description: A step in an automation workflow. The `config` object varies based on the step `type`.
       required:
-        - ref
+        - key
         - type
         - config
       properties:
-        ref:
+        key:
           type: string
-          description: A unique reference identifier for this step within the automation graph.
+          description: A unique key for this step within the automation graph.
         type:
           type: string
           enum:
@@ -4204,9 +4860,9 @@ components:
           description: >
             Configuration for the step. Shape depends on `type`:
             - **trigger**: `{ event_name: string }`
-            - **send_email**: `{ template_id: string, subject?: string, from?: string, reply_to?: string, variables?: object }`
-            - **delay**: `{ seconds: number }`
-            - **wait_for_event**: `{ event_name: string, timeout_seconds?: number, filter_rule?: object }`
+            - **send_email**: `{ template: { id: string, variables?: object }, subject?: string, from?: string, reply_to?: string }`
+            - **delay**: `{ duration: string }` — a human-readable duration (e.g. `"30 minutes"`)
+            - **wait_for_event**: `{ event_name: string, timeout?: string, filter_rule?: object }` — `timeout` is a human-readable duration (e.g. `"1 hour"`)
             - **condition**: A rule tree with `type` (`rule`, `and`, `or`), `field`, `operator`, and `value`
             - **contact_update**: `{ first_name?: string|object, last_name?: string|object, unsubscribed?: boolean|object, properties?: object }`
             - **contact_delete**: `{}`
@@ -4215,6 +4871,9 @@ components:
       type: object
       description: A step as returned when retrieving an automation.
       properties:
+        key:
+          type: string
+          description: The unique key of this step within the automation graph.
         type:
           type: string
           enum:
@@ -4229,21 +4888,24 @@ components:
           description: The type of automation step.
         config:
           type: object
-          description: Configuration for the step. Shape depends on `type`.
-    AutomationEdge:
+          description: >
+            Configuration for the step. Shape depends on `type`.
+            For `delay` steps, config contains `{ duration: string }` with a human-readable duration (e.g. `"30 minutes"`).
+            For `wait_for_event` steps, config contains `{ event_name: string, timeout?: string, filter_rule?: object }` where `timeout` is a human-readable duration.
+    AutomationConnection:
       type: object
-      description: An edge connecting two steps in the automation graph.
+      description: A connection between two steps in the automation graph.
       required:
         - from
         - to
       properties:
         from:
           type: string
-          description: The `ref` of the source step (in requests) or the step ID (in responses).
+          description: The `key` of the source step.
         to:
           type: string
-          description: The `ref` of the target step (in requests) or the step ID (in responses).
-        edge_type:
+          description: The `key` of the target step.
+        type:
           type: string
           enum:
             - default
@@ -4252,13 +4914,13 @@ components:
             - timeout
             - event_received
           default: default
-          description: The type of edge. Defaults to `default`.
+          description: The type of connection. Defaults to `default`.
     CreateAutomationRequest:
       type: object
       required:
         - name
         - steps
-        - edges
+        - connections
       properties:
         name:
           type: string
@@ -4278,11 +4940,11 @@ components:
           description: The steps that compose the automation workflow. Must include at least one `trigger` step.
           items:
             $ref: '#/components/schemas/AutomationStep'
-        edges:
+        connections:
           type: array
-          description: The edges connecting steps in the automation graph.
+          description: The connections between steps in the automation graph.
           items:
-            $ref: '#/components/schemas/AutomationEdge'
+            $ref: '#/components/schemas/AutomationConnection'
     CreateAutomationResponse:
       type: object
       properties:
@@ -4323,11 +4985,11 @@ components:
           description: The steps in the active version of the automation.
           items:
             $ref: '#/components/schemas/AutomationStepResponse'
-        edges:
+        connections:
           type: array
-          description: The edges connecting steps in the active version of the automation.
+          description: The connections between steps in the active version of the automation.
           items:
-            $ref: '#/components/schemas/AutomationEdge'
+            $ref: '#/components/schemas/AutomationConnection'
     AutomationListItem:
       type: object
       properties:
@@ -4367,8 +5029,8 @@ components:
     PatchAutomationRequest:
       type: object
       description: >
-        At least one of `name`, `status`, or `steps` and `edges` must be provided.
-        When updating the workflow graph, both `steps` and `edges` must be provided together.
+        At least one of `name`, `status`, or `steps` and `connections` must be provided.
+        When updating the workflow graph, both `steps` and `connections` must be provided together.
       properties:
         name:
           type: string
@@ -4384,14 +5046,14 @@ components:
           type: array
           minItems: 1
           maxItems: 150
-          description: The steps that compose the automation workflow. Must be provided together with `edges`.
+          description: The steps that compose the automation workflow. Must be provided together with `connections`.
           items:
             $ref: '#/components/schemas/AutomationStep'
-        edges:
+        connections:
           type: array
-          description: The edges connecting steps in the automation graph. Must be provided together with `steps`.
+          description: The connections between steps in the automation graph. Must be provided together with `steps`.
           items:
-            $ref: '#/components/schemas/AutomationEdge'
+            $ref: '#/components/schemas/AutomationConnection'
     PatchAutomationResponse:
       type: object
       properties:
@@ -4434,6 +5096,9 @@ components:
       type: object
       description: A step execution within an automation run.
       properties:
+        key:
+          type: string
+          description: The key of the automation step.
         type:
           type: string
           enum:
@@ -4450,18 +5115,16 @@ components:
           type: string
           description: The execution status of this step.
         started_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the step started executing.
         completed_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the step completed executing.
         output:
-          nullable: true
+          type: [object, "null"]
           description: The output produced by the step, if any.
         error:
-          nullable: true
+          type: [object, "null"]
           description: The error produced by the step, if any.
         created_at:
           type: string
@@ -4485,12 +5148,10 @@ components:
             - cancelled
           description: The current status of the automation run.
         started_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the run started.
         completed_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the run completed.
         created_at:
           type: string
@@ -4515,12 +5176,10 @@ components:
             - cancelled
           description: The current status of the automation run.
         started_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the run started.
         completed_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the run completed.
         created_at:
           type: string
@@ -4555,15 +5214,13 @@ components:
           type: string
           description: The event name.
         schema:
-          type: object
-          nullable: true
+          type: [object, "null"]
           description: A flat key/type map defining the event payload schema. Supported types are `string`, `number`, `boolean`, and `date`.
         created_at:
           type: string
           description: The date and time the event was created.
         updated_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the event was last updated.
     EventSummary:
       type: object
@@ -4576,15 +5233,13 @@ components:
           type: string
           description: The event name.
         schema:
-          type: object
-          nullable: true
+          type: [object, "null"]
           description: A flat key/type map defining the event payload schema. Supported types are `string`, `number`, `boolean`, and `date`.
         created_at:
           type: string
           description: The date and time the event was created.
         updated_at:
-          type: string
-          nullable: true
+          type: [string, "null"]
           description: The date and time the event was last updated.
     CreateEventRequest:
       type: object
@@ -4595,8 +5250,7 @@ components:
           type: string
           description: The name of the event. Cannot start with the reserved `resend:` prefix.
         schema:
-          type: object
-          nullable: true
+          type: [object, "null"]
           description: An optional flat key/type map defining the event payload schema. Supported types are `string`, `number`, `boolean`, and `date`.
     CreateEventResponse:
       type: object
@@ -4631,8 +5285,7 @@ components:
         - schema
       properties:
         schema:
-          type: object
-          nullable: true
+          type: [object, "null"]
           description: A flat key/type map defining the event payload schema. Set to `null` to clear the schema. Supported types are `string`, `number`, `boolean`, and `date`.
     UpdateEventResponse:
       type: object
@@ -4690,3 +5343,670 @@ components:
         event:
           type: string
           description: The name of the event that was sent.
+    WebhookEventBounce:
+      type: object
+      required:
+        - diagnosticCode
+        - message
+        - subType
+        - type
+      properties:
+        diagnosticCode:
+          type: array
+          items:
+            type: string
+          description: Array of SMTP diagnostic responses from the receiving server, one entry per recipient (e.g., `smtp; 550 5.1.1 user unknown`).
+        message:
+          type: string
+          description: Detailed bounce message describing why the email bounced.
+        subType:
+          type: string
+          enum:
+            - Undetermined
+            - General
+            - NoEmail
+            - MailboxFull
+            - MessageTooLarge
+            - ContentRejected
+            - AttachmentRejected
+          description: Bounce sub-type.
+        type:
+          type: string
+          enum:
+            - Undetermined
+            - Transient
+            - Permanent
+          description: Bounce type.
+    WebhookEventClick:
+      type: object
+      required:
+        - ipAddress
+        - link
+        - timestamp
+        - userAgent
+      properties:
+        ipAddress:
+          type: string
+          description: IP address of the user who clicked the link.
+        link:
+          type: string
+          description: The URL that was clicked.
+        timestamp:
+          type: string
+          format: date-time
+          description: Timestamp when the click occurred.
+        userAgent:
+          type: string
+          description: User agent string of the browser that clicked the link.
+    WebhookEventFailed:
+      type: object
+      required:
+        - reason
+      properties:
+        reason:
+          type: string
+          description: Reason for the email failure (e.g., `reached_daily_quota`).
+    WebhookEventSuppressed:
+      type: object
+      required:
+        - diagnosticCode
+        - message
+        - reason
+        - type
+      properties:
+        diagnosticCode:
+          type: array
+          items:
+            type: string
+          description: Array of SMTP diagnostic responses from the receiving server, one entry per recipient.
+        message:
+          type: string
+          description: Detailed suppression message describing why the email was suppressed.
+        reason:
+          type: string
+          enum:
+            - previous_bounce
+            - previous_complaint
+          description: Reason the address is suppressed.
+        type:
+          type: string
+          enum:
+            - Suppressed
+            - OnAccountSuppressionList
+          description: Suppression type.
+    WebhookEventAttachment:
+      type: object
+      required:
+        - id
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the attachment.
+        filename:
+          type: string
+          description: The filename of the attachment.
+        content_type:
+          type: string
+          description: The MIME type of the attachment.
+        content_disposition:
+          type: string
+          description: The content disposition (e.g., `inline` or `attachment`).
+        content_id:
+          type: string
+          description: Content-ID header used for referencing inline images.
+    WebhookDomainRecord:
+      type: object
+      required:
+        - record
+        - name
+        - value
+        - type
+        - ttl
+        - status
+      properties:
+        record:
+          type: string
+          enum:
+            - SPF
+            - DKIM
+            - Receiving MX
+            - Tracking
+            - TrackingCAA
+          description: The purpose of the DNS record (SPF and DKIM for sending; Receiving MX for inbound emails; Tracking and TrackingCAA for click and open tracking).
+        name:
+          type: string
+          description: DNS record name or subdomain.
+        value:
+          type: string
+          description: DNS record value to be set.
+        type:
+          type: string
+          enum:
+            - MX
+            - TXT
+            - CNAME
+            - CAA
+          description: DNS record type.
+        ttl:
+          type: string
+          description: Time to live for the DNS record (e.g., `Auto`, `60`).
+        status:
+          type: string
+          enum:
+            - pending
+            - verified
+            - failed
+            - temporary_failure
+            - not_started
+          description: Verification status of this specific record.
+        priority:
+          type: integer
+          description: Priority value (only applicable for MX records).
+    OutboundEmailEventData:
+      type: object
+      required:
+        - email_id
+        - created_at
+        - from
+        - to
+        - subject
+      properties:
+        email_id:
+          type: string
+          description: Unique identifier for the email.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the email was created.
+        from:
+          type: string
+          description: Sender email address and name in the format `Name <email@domain.com>`.
+        to:
+          type: array
+          items:
+            type: string
+          description: Array of impacted recipient email addresses.
+        subject:
+          type: string
+          description: Email subject line.
+        broadcast_id:
+          type: string
+          description: Unique identifier for the broadcast campaign, if applicable.
+        template_id:
+          type: string
+          description: Unique identifier for the template used, if applicable.
+        tags:
+          type: object
+          additionalProperties:
+            type: string
+          description: Tag key-value pairs associated with the email.
+        headers:
+          type: array
+          items:
+            type: object
+            required:
+              - name
+              - value
+            properties:
+              name:
+                type: string
+              value:
+                type: string
+          description: Custom headers included with the email (omitted when no custom headers are set).
+    EmailBouncedEventData:
+      allOf:
+        - $ref: '#/components/schemas/OutboundEmailEventData'
+        - type: object
+          required:
+            - bounce
+          properties:
+            bounce:
+              $ref: '#/components/schemas/WebhookEventBounce'
+    EmailClickedEventData:
+      allOf:
+        - $ref: '#/components/schemas/OutboundEmailEventData'
+        - type: object
+          required:
+            - click
+          properties:
+            click:
+              $ref: '#/components/schemas/WebhookEventClick'
+    EmailFailedEventData:
+      allOf:
+        - $ref: '#/components/schemas/OutboundEmailEventData'
+        - type: object
+          required:
+            - failed
+          properties:
+            failed:
+              $ref: '#/components/schemas/WebhookEventFailed'
+    EmailSuppressedEventData:
+      allOf:
+        - $ref: '#/components/schemas/OutboundEmailEventData'
+        - type: object
+          required:
+            - suppressed
+          properties:
+            suppressed:
+              $ref: '#/components/schemas/WebhookEventSuppressed'
+    EmailReceivedEventData:
+      type: object
+      required:
+        - email_id
+        - created_at
+        - from
+        - to
+        - subject
+        - message_id
+        - bcc
+        - cc
+        - attachments
+      properties:
+        email_id:
+          type: string
+          description: Unique identifier for the email.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the email was received.
+        from:
+          type: string
+          description: Sender email address.
+        to:
+          type: array
+          items:
+            type: string
+          description: Array of recipient email addresses.
+        subject:
+          type: string
+          description: Email subject line.
+        message_id:
+          type: string
+          description: The unique message ID from the email headers.
+        bcc:
+          type: array
+          items:
+            type: string
+          description: BCC recipients.
+        cc:
+          type: array
+          items:
+            type: string
+          description: CC recipients.
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookEventAttachment'
+          description: Array of attachment metadata.
+    ContactEventData:
+      type: object
+      required:
+        - id
+        - created_at
+        - updated_at
+        - email
+        - unsubscribed
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the contact.
+        audience_id:
+          type: string
+          description: Unique identifier for the audience this contact belongs to.
+        segment_ids:
+          type: array
+          items:
+            type: string
+          description: Array of segment IDs the contact belongs to.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the contact was created.
+        updated_at:
+          type: string
+          format: date-time
+          description: Timestamp when the contact was last updated.
+        email:
+          type: string
+          description: Contact's email address.
+        first_name:
+          type: string
+          description: Contact's first name.
+        last_name:
+          type: string
+          description: Contact's last name.
+        unsubscribed:
+          type: boolean
+          description: Whether the contact has unsubscribed from all emails sent from your team.
+    DomainEventData:
+      type: object
+      required:
+        - id
+        - name
+        - status
+        - created_at
+        - region
+        - records
+      properties:
+        id:
+          type: string
+          description: Unique identifier for the domain.
+        name:
+          type: string
+          description: The domain name (e.g., `example.com`).
+        status:
+          type: string
+          enum:
+            - verified
+            - partially_verified
+            - partially_failed
+            - failed
+            - pending
+            - not_started
+          description: Aggregated verification status of the domain.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the domain was created.
+        region:
+          type: string
+          enum:
+            - us-east-1
+            - eu-west-1
+            - sa-east-1
+            - ap-northeast-1
+          description: AWS region where the domain is configured.
+        records:
+          type: array
+          items:
+            $ref: '#/components/schemas/WebhookDomainRecord'
+          description: DNS records required for domain verification.
+    EmailSentEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.sent
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/OutboundEmailEventData'
+    EmailDeliveredEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.delivered
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/OutboundEmailEventData'
+    EmailDeliveryDelayedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.delivery_delayed
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/OutboundEmailEventData'
+    EmailBouncedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.bounced
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/EmailBouncedEventData'
+    EmailComplainedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.complained
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/OutboundEmailEventData'
+    EmailOpenedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.opened
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/OutboundEmailEventData'
+    EmailClickedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.clicked
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/EmailClickedEventData'
+    EmailFailedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.failed
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/EmailFailedEventData'
+    EmailScheduledEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.scheduled
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/OutboundEmailEventData'
+    EmailSuppressedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.suppressed
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/EmailSuppressedEventData'
+    EmailReceivedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: email.received
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/EmailReceivedEventData'
+    ContactCreatedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: contact.created
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/ContactEventData'
+    ContactUpdatedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: contact.updated
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/ContactEventData'
+    ContactDeletedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: contact.deleted
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/ContactEventData'
+    DomainCreatedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: domain.created
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/DomainEventData'
+    DomainUpdatedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: domain.updated
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/DomainEventData'
+    DomainDeletedEvent:
+      type: object
+      required:
+        - type
+        - created_at
+        - data
+      properties:
+        type:
+          type: string
+          const: domain.deleted
+          description: The event type.
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp when the event was emitted.
+        data:
+          $ref: '#/components/schemas/DomainEventData'
