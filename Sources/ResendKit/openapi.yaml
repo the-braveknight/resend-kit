@@ -2164,9 +2164,7 @@ components:
     SendEmailRequest:
       type: object
       required:
-        - from
         - to
-        - subject
       properties:
         from:
           type: string
