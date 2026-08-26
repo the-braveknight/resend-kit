@@ -1,7 +1,7 @@
 openapi: 3.1.2
 info:
   title: Resend
-  version: 1.5.0
+  version: 1.5.1
   description: 'Resend is the email platform for developers.'
 servers:
   - url: https://api.resend.com
@@ -34,15 +34,20 @@ tags:
     description: Create and manage Topics through the Resend API.
   - name: Contact Properties
     description: Create and manage Contact Properties through the Resend API.
+  - name: Suppressions
+    description: Create and manage Suppressions through the Resend API.
   - name: Logs
     description: Retrieve API request logs through the Resend API.
   - name: Automations
     description: Create and manage Automations through the Resend API.
   - name: Events
     description: Create and manage Events through the Resend API.
+  - name: OAuth
+    description: List and manage OAuth grants through the Resend API.
 paths:
   /emails:
     post:
+      operationId: emails/send
       tags:
         - Emails
       summary: Send an email
@@ -67,6 +72,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/SendEmailResponse'
     get:
+      operationId: emails/list
       tags:
         - Emails
       summary: Retrieve a list of emails
@@ -83,6 +89,7 @@ paths:
                 $ref: '#/components/schemas/ListEmailsResponse'
   /emails/{email_id}:
     get:
+      operationId: emails/get
       tags:
         - Emails
       summary: Retrieve a single email
@@ -101,6 +108,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Email'
     patch:
+      operationId: emails/update
       tags:
         - Emails
       summary: Update a single email
@@ -120,6 +128,7 @@ paths:
                 $ref: '#/components/schemas/UpdateEmailOptions'
   /emails/{email_id}/cancel:
     post:
+      operationId: emails/cancel
       tags:
         - Emails
       summary: Cancel the schedule of the e-mail.
@@ -137,8 +146,35 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Email'
+  /emails/{email_id}/share:
+    post:
+      operationId: emails/share
+      tags:
+        - Emails
+      summary: Create a shareable link for a sent or received email.
+      parameters:
+        - name: email_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The ID of the email.
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ShareEmailOptions'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ShareEmailResponse'
   /emails/batch:
     post:
+      operationId: emails/send-batch
       tags:
         - Emails
       summary: Trigger up to 100 batch emails at once.
@@ -166,6 +202,7 @@ paths:
                 $ref: '#/components/schemas/CreateBatchEmailsResponse'
   /emails/{email_id}/attachments:
     get:
+      operationId: emails/list-attachments
       tags:
         - Emails
       summary: Retrieve a list of attachments for a sent email
@@ -206,6 +243,7 @@ paths:
                 $ref: '#/components/schemas/ListAttachmentsResponse'
   /emails/{email_id}/attachments/{attachment_id}:
     get:
+      operationId: emails/get-attachment
       tags:
         - Emails
       summary: Retrieve a single attachment for a sent email
@@ -233,6 +271,7 @@ paths:
                 $ref: '#/components/schemas/RetrievedAttachment'
   /emails/receiving:
     get:
+      operationId: emails/list-receiving
       tags:
         - Receiving Emails
       summary: Retrieve a list of received emails
@@ -266,6 +305,7 @@ paths:
                 $ref: '#/components/schemas/ListReceivedEmailsResponse'
   /emails/receiving/{email_id}:
     get:
+      operationId: emails/get-receiving
       tags:
         - Receiving Emails
       summary: Retrieve a single received email
@@ -286,6 +326,7 @@ paths:
                 $ref: '#/components/schemas/GetReceivedEmailResponse'
   /emails/receiving/{email_id}/attachments:
     get:
+      operationId: emails/list-receiving-attachments
       tags:
         - Receiving Emails
       summary: Retrieve a list of attachments for a received email
@@ -326,6 +367,7 @@ paths:
                 $ref: '#/components/schemas/ListAttachmentsResponse'
   /emails/receiving/{email_id}/attachments/{attachment_id}:
     get:
+      operationId: emails/get-receiving-attachment
       tags:
         - Receiving Emails
       summary: Retrieve a single attachment for a received email
@@ -351,8 +393,126 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RetrievedAttachment'
+  /emails/metrics:
+    get:
+      operationId: emails/metrics
+      tags:
+        - Emails
+      summary: Retrieve account-level email metrics
+      parameters:
+        - name: start_date
+          in: query
+          schema:
+            type: string
+          description: The start of the date range, as an ISO 8601 date or datetime. Must be on or before `end_date`. Defaults to 6 days before `end_date`.
+        - name: end_date
+          in: query
+          schema:
+            type: string
+          description: The end of the date range, as an ISO 8601 date or datetime. Values in the future are clamped to the current time. Defaults to now.
+        - name: timezone
+          in: query
+          schema:
+            type: string
+            default: 'UTC'
+          description: The IANA timezone (e.g. `America/New_York`) used to bucket periods when `period` is in `dimensions`.
+        - name: granularity
+          in: query
+          schema:
+            type: string
+            enum:
+              - hourly
+              - daily
+              - weekly
+              - monthly
+            default: 'daily'
+          description: The bucket size used when `period` is in `dimensions`. The date range can't produce more than 10,000 periods at the chosen granularity.
+        - name: metrics
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - received
+                - delivered
+                - complained
+                - suppressed
+                - bounced
+                - bounced_transient
+                - bounced_permanent
+                - bounced_undetermined
+                - opened
+                - clicked
+                - unsubscribed
+                - delivery_delayed
+                - failed
+                - sent
+                - unique_opened
+                - unique_clicked
+                - delivery_rate
+                - open_rate
+                - click_rate
+                - bounce_rate
+                - complaint_rate
+                - unsubscribe_rate
+          description: List of metrics to include in the response. Defaults to all metrics. Accepts a comma-separated value, the parameter repeated, or a mix of both.
+        - name: dimensions
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              enum:
+                - period
+                - domain
+                - email
+                - broadcast
+          description: List of dimensions to break the response down by. `email` cannot be combined with `broadcast`. Defaults to `[]`, returning a single `totals` row for the whole range, with no `data`. Accepts a comma-separated value, the parameter repeated, or a mix of both.
+        - name: domain_id
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+          description: List of sending domain IDs to restrict the response to, up to 100. Accepts a comma-separated value, the parameter repeated, or a mix of both.
+        - name: email_id
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+          description: List of email IDs to restrict the response to, up to 100. Cannot be combined with the `broadcast` dimension or `broadcast_id`. Accepts a comma-separated value, the parameter repeated, or a mix of both.
+        - name: broadcast_id
+          in: query
+          style: form
+          explode: false
+          schema:
+            type: array
+            items:
+              type: string
+              format: uuid
+          description: List of broadcast IDs to restrict the response to, up to 100. Cannot be combined with the `email` dimension or `email_id`. Accepts a comma-separated value, the parameter repeated, or a mix of both.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetEmailsMetricsResponse'
   /domains:
     post:
+      operationId: domains/create
       tags:
         - Domains
       summary: Create a new domain
@@ -369,6 +529,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateDomainResponse'
     get:
+      operationId: domains/list
       tags:
         - Domains
       summary: Retrieve a list of domains
@@ -385,6 +546,7 @@ paths:
                 $ref: '#/components/schemas/ListDomainsResponse'
   /domains/{domain_id}:
     get:
+      operationId: domains/get
       tags:
         - Domains
       summary: Retrieve a single domain
@@ -403,6 +565,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Domain'
     patch:
+      operationId: domains/update
       tags:
         - Domains
       summary: Update an existing domain
@@ -426,6 +589,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateDomainResponseSuccess'
     delete:
+      operationId: domains/remove
       tags:
         - Domains
       summary: Remove an existing domain
@@ -445,6 +609,7 @@ paths:
                 $ref: '#/components/schemas/DeleteDomainResponse'
   /domains/{domain_id}/verify:
     post:
+      operationId: domains/verify
       tags:
         - Domains
       summary: Verify an existing domain
@@ -465,6 +630,7 @@ paths:
                 $ref: '#/components/schemas/VerifyDomainResponse'
   /domains/claim:
     post:
+      operationId: domains/create-claim
       tags:
         - Domains
       summary: Claim a domain
@@ -494,6 +660,7 @@ paths:
                 $ref: '#/components/schemas/DomainClaim'
   /domains/{domain_id}/claim:
     get:
+      operationId: domains/get-claim
       tags:
         - Domains
       summary: Retrieve a domain claim
@@ -514,6 +681,7 @@ paths:
                 $ref: '#/components/schemas/DomainClaim'
   /domains/{domain_id}/claim/verify:
     post:
+      operationId: domains/verify-claim
       tags:
         - Domains
       summary: Verify a domain claim
@@ -539,6 +707,7 @@ paths:
                 $ref: '#/components/schemas/DomainClaim'
   /api-keys:
     post:
+      operationId: api-keys/create
       tags:
         - API Keys
       summary: Create a new API key
@@ -555,6 +724,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateApiKeyResponse'
     get:
+      operationId: api-keys/list
       tags:
         - API Keys
       summary: Retrieve a list of API keys
@@ -570,7 +740,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/ListApiKeysResponse'
   /api-keys/{api_key_id}:
+    patch:
+      operationId: api-keys/update
+      tags:
+        - API Keys
+      summary: Update an existing API key
+      parameters:
+        - name: api_key_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The API key ID.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateApiKeyRequest'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateApiKeyResponse'
     delete:
+      operationId: api-keys/remove
       tags:
         - API Keys
       summary: Remove an existing API key
@@ -588,8 +783,46 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeleteApiKeyResponse'
+  /oauth/grants:
+    get:
+      operationId: oauth/list-grants
+      tags:
+        - OAuth
+      summary: Retrieve a list of OAuth grants
+      parameters:
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationAfter'
+        - $ref: '#/components/parameters/PaginationBefore'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListOAuthGrantsResponse'
+  /oauth/grants/{oauth_grant_id}:
+    delete:
+      operationId: oauth/revoke-grant
+      tags:
+        - OAuth
+      summary: Revoke an OAuth grant
+      parameters:
+        - name: oauth_grant_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The OAuth grant ID.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokeOAuthGrantResponse'
   /templates:
     post:
+      operationId: templates/create
       tags:
         - Templates
       summary: Create a template
@@ -606,6 +839,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateTemplateResponseSuccess'
     get:
+      operationId: templates/list
       tags:
         - Templates
       summary: Retrieve a list of templates
@@ -622,6 +856,7 @@ paths:
                 $ref: '#/components/schemas/ListTemplatesResponseSuccess'
   /templates/{id}:
     get:
+      operationId: templates/get
       tags:
         - Templates
       summary: Retrieve a single template
@@ -640,6 +875,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Template'
     patch:
+      operationId: templates/update
       tags:
         - Templates
       summary: Update an existing template
@@ -663,6 +899,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateTemplateResponseSuccess'
     delete:
+      operationId: templates/remove
       tags:
         - Templates
       summary: Remove an existing template
@@ -682,6 +919,7 @@ paths:
                 $ref: '#/components/schemas/RemoveTemplateResponseSuccess'
   /templates/{id}/publish:
     post:
+      operationId: templates/publish
       tags:
         - Templates
       summary: Publish a template
@@ -701,6 +939,7 @@ paths:
                 $ref: '#/components/schemas/PublishTemplateResponseSuccess'
   /templates/{id}/duplicate:
     post:
+      operationId: templates/duplicate
       tags:
         - Templates
       summary: Duplicate a template
@@ -720,6 +959,7 @@ paths:
                 $ref: '#/components/schemas/DuplicateTemplateResponseSuccess'
   /audiences:
     post:
+      operationId: audiences/create
       tags:
         - Audiences
       summary: Create a list of contacts
@@ -738,6 +978,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateAudienceResponseSuccess'
     get:
+      operationId: audiences/list
       tags:
         - Audiences
       summary: Retrieve a list of audiences
@@ -752,6 +993,7 @@ paths:
                 $ref: '#/components/schemas/ListAudiencesResponseSuccess'
   /audiences/{id}:
     delete:
+      operationId: audiences/remove
       tags:
         - Audiences
       summary: Remove an existing audience
@@ -772,6 +1014,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RemoveAudienceResponseSuccess'
     get:
+      operationId: audiences/get
       tags:
         - Audiences
       summary: Retrieve a single audience
@@ -793,6 +1036,7 @@ paths:
                 $ref: '#/components/schemas/GetAudienceResponseSuccess'
   /contacts:
     post:
+      operationId: contacts/create
       tags:
         - Contacts
       summary: Create a new contact
@@ -809,6 +1053,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateContactResponseSuccess'
     get:
+      operationId: contacts/list
       tags:
         - Contacts
       summary: Retrieve a list of contacts
@@ -831,6 +1076,7 @@ paths:
                 $ref: '#/components/schemas/ListContactsResponseSuccess'
   /contacts/imports:
     post:
+      operationId: contacts/create-import
       tags:
         - Contacts
       summary: Create a contact import
@@ -848,6 +1094,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateContactImportResponseSuccess'
     get:
+      operationId: contacts/list-imports
       tags:
         - Contacts
       summary: Retrieve a list of contact imports
@@ -875,6 +1122,7 @@ paths:
                 $ref: '#/components/schemas/ListContactImportsResponseSuccess'
   /contacts/imports/{id}:
     get:
+      operationId: contacts/get-import
       tags:
         - Contacts
       summary: Retrieve a single contact import
@@ -895,6 +1143,7 @@ paths:
                 $ref: '#/components/schemas/GetContactImportResponseSuccess'
   /contacts/{id}:
     get:
+      operationId: contacts/get
       tags:
         - Contacts
       summary: Retrieve a single contact by ID or email
@@ -913,6 +1162,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetContactResponseSuccess'
     patch:
+      operationId: contacts/update
       tags:
         - Contacts
       summary: Update a single contact by ID or email
@@ -936,6 +1186,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateContactResponseSuccess'
     delete:
+      operationId: contacts/remove
       tags:
         - Contacts
       summary: Remove an existing contact by ID or email
@@ -955,6 +1206,7 @@ paths:
                 $ref: '#/components/schemas/RemoveContactResponseSuccess'
   /broadcasts:
     post:
+      operationId: broadcasts/create
       tags:
         - Broadcasts
       summary: Create a broadcast
@@ -971,6 +1223,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateBroadcastResponseSuccess'
     get:
+      operationId: broadcasts/list
       tags:
         - Broadcasts
       summary: Retrieve a list of broadcasts
@@ -987,6 +1240,7 @@ paths:
                 $ref: '#/components/schemas/ListBroadcastsResponseSuccess'
   /broadcasts/{id}:
     delete:
+      operationId: broadcasts/remove
       tags:
         - Broadcasts
       summary: Remove an existing broadcast that is in the draft status
@@ -1005,6 +1259,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/RemoveBroadcastResponseSuccess'
     get:
+      operationId: broadcasts/get
       tags:
         - Broadcasts
       summary: Retrieve a single broadcast
@@ -1023,6 +1278,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetBroadcastResponseSuccess'
     patch:
+      operationId: broadcasts/update
       tags:
         - Broadcasts
       summary: Update an existing broadcast
@@ -1047,6 +1303,7 @@ paths:
                 $ref: '#/components/schemas/UpdateBroadcastResponseSuccess'
   /broadcasts/{id}/send:
     post:
+      operationId: broadcasts/send
       tags:
         - Broadcasts
       summary: Send or schedule a broadcast
@@ -1069,8 +1326,116 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/SendBroadcastResponseSuccess'
+  /broadcasts/{id}/cancel:
+    post:
+      operationId: broadcasts/cancel
+      tags:
+        - Broadcasts
+      summary: Cancel a broadcast
+      description: >-
+        Cancels a broadcast that is queued or scheduled. Canceling a
+        queued broadcast stops it mid-send; emails already sent are not
+        affected, but no further emails will go out.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The Broadcast ID.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CancelBroadcastResponseSuccess'
+  /broadcasts/{id}/recipients:
+    get:
+      operationId: broadcasts/recipients
+      tags:
+        - Broadcasts
+      summary: Retrieve broadcast recipients
+      description: >-
+        Retrieve the recipients of a broadcast for a given event type, such
+        as who opened, clicked, or bounced.
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The Broadcast ID.
+        - name: type
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - sent
+              - delivered
+              - opened
+              - clicked
+              - bounced
+              - complained
+              - unsubscribed
+              - suppressed
+          description: The recipient event type to filter by.
+        - name: email
+          in: query
+          required: false
+          schema:
+            type: string
+          description: Filter recipients whose email address contains this value.
+        - name: bounce_type
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - permanent
+              - transient
+              - undetermined
+          description: Filter bounced recipients by bounce type. Only valid when `type` is `bounced`.
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationAfter'
+        - $ref: '#/components/parameters/PaginationBefore'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListBroadcastRecipientsResponseSuccess'
+  /broadcasts/{id}/clicked-links:
+    get:
+      operationId: broadcasts/list-clicked-links
+      tags:
+        - Broadcasts
+      summary: Retrieve a broadcast's clicked links
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The Broadcast ID.
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationAfter'
+        - $ref: '#/components/parameters/PaginationBefore'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListBroadcastClickedLinksResponseSuccess'
   /webhooks:
     post:
+      operationId: webhooks/create
       tags:
         - Webhooks
       summary: Create a new webhook
@@ -1087,6 +1452,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateWebhookResponse'
     get:
+      operationId: webhooks/list
       tags:
         - Webhooks
       summary: Retrieve a list of webhooks
@@ -1120,6 +1486,7 @@ paths:
                 $ref: '#/components/schemas/ListWebhooksResponse'
   /webhooks/{webhook_id}:
     get:
+      operationId: webhooks/get
       tags:
         - Webhooks
       summary: Retrieve a single webhook
@@ -1139,6 +1506,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetWebhookResponse'
     patch:
+      operationId: webhooks/update
       tags:
         - Webhooks
       summary: Update an existing webhook
@@ -1163,6 +1531,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateWebhookResponse'
     delete:
+      operationId: webhooks/remove
       tags:
         - Webhooks
       summary: Remove an existing webhook
@@ -1181,8 +1550,88 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeleteWebhookResponse'
+  /webhooks/{webhook_id}/events:
+    get:
+      operationId: webhooks/list-events
+      tags:
+        - Webhooks
+      summary: Retrieve a list of webhook events
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The Webhook ID.
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationAfter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWebhookEventsResponse'
+  /webhooks/{webhook_id}/events/{event_id}:
+    get:
+      operationId: webhooks/get-event
+      tags:
+        - Webhooks
+      summary: Retrieve a single webhook event
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The Webhook ID.
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Webhook Event ID.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetWebhookEventResponse'
+  /webhooks/{webhook_id}/events/{event_id}/attempts:
+    get:
+      operationId: webhooks/list-event-attempts
+      tags:
+        - Webhooks
+      summary: Retrieve a list of webhook event attempts
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The Webhook ID.
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Webhook Event ID.
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationAfter'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListWebhookEventAttemptsResponse'
   /segments:
     post:
+      operationId: segments/create
       tags:
         - Segments
       summary: Create a new segment
@@ -1199,6 +1648,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateSegmentResponseSuccess'
     get:
+      operationId: segments/list
       tags:
         - Segments
       summary: Retrieve a list of segments
@@ -1215,6 +1665,7 @@ paths:
                 $ref: '#/components/schemas/ListSegmentsResponseSuccess'
   /segments/{id}:
     get:
+      operationId: segments/get
       tags:
         - Segments
       summary: Retrieve a single segment
@@ -1232,7 +1683,32 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GetSegmentResponseSuccess'
+    patch:
+      operationId: segments/update
+      tags:
+        - Segments
+      summary: Update an existing segment
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Segment ID.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateSegmentOptions'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UpdateSegmentResponseSuccess'
     delete:
+      operationId: segments/remove
       tags:
         - Segments
       summary: Remove an existing segment
@@ -1252,6 +1728,7 @@ paths:
                 $ref: '#/components/schemas/RemoveSegmentResponseSuccess'
   /topics:
     post:
+      operationId: topics/create
       tags:
         - Topics
       summary: Create a new topic
@@ -1268,6 +1745,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateTopicResponseSuccess'
     get:
+      operationId: topics/list
       tags:
         - Topics
       summary: Retrieve a list of topics
@@ -1284,6 +1762,7 @@ paths:
                 $ref: '#/components/schemas/ListTopicsResponseSuccess'
   /topics/{id}:
     get:
+      operationId: topics/get
       tags:
         - Topics
       summary: Retrieve a single topic
@@ -1302,6 +1781,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetTopicResponseSuccess'
     patch:
+      operationId: topics/update
       tags:
         - Topics
       summary: Update an existing topic
@@ -1325,6 +1805,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateTopicResponseSuccess'
     delete:
+      operationId: topics/remove
       tags:
         - Topics
       summary: Remove an existing topic
@@ -1344,6 +1825,7 @@ paths:
                 $ref: '#/components/schemas/RemoveTopicResponseSuccess'
   /contact-properties:
     post:
+      operationId: contact-properties/create
       tags:
         - Contact Properties
       summary: Create a new contact property
@@ -1360,6 +1842,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateContactPropertyResponseSuccess'
     get:
+      operationId: contact-properties/list
       tags:
         - Contact Properties
       summary: Retrieve a list of contact properties
@@ -1376,6 +1859,7 @@ paths:
                 $ref: '#/components/schemas/ListContactPropertiesResponseSuccess'
   /contact-properties/{id}:
     get:
+      operationId: contact-properties/get
       tags:
         - Contact Properties
       summary: Retrieve a single contact property
@@ -1394,6 +1878,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetContactPropertyResponseSuccess'
     patch:
+      operationId: contact-properties/update
       tags:
         - Contact Properties
       summary: Update an existing contact property
@@ -1417,6 +1902,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateContactPropertyResponseSuccess'
     delete:
+      operationId: contact-properties/remove
       tags:
         - Contact Properties
       summary: Remove an existing contact property
@@ -1436,6 +1922,7 @@ paths:
                 $ref: '#/components/schemas/RemoveContactPropertyResponseSuccess'
   /contacts/{contact_id}/segments:
     get:
+      operationId: contacts/list-segments
       tags:
         - Contacts
       summary: Retrieve a list of segments for a contact
@@ -1458,6 +1945,7 @@ paths:
                 $ref: '#/components/schemas/ListContactSegmentsResponseSuccess'
   /contacts/{contact_id}/segments/{segment_id}:
     post:
+      operationId: contacts/add-segment
       tags:
         - Contacts
       summary: Add a contact to a segment
@@ -1482,6 +1970,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/AddContactToSegmentResponseSuccess'
     delete:
+      operationId: contacts/remove-segment
       tags:
         - Contacts
       summary: Remove a contact from a segment
@@ -1507,6 +1996,7 @@ paths:
                 $ref: '#/components/schemas/RemoveContactFromSegmentResponseSuccess'
   /contacts/{contact_id}/topics:
     get:
+      operationId: contacts/list-topics
       tags:
         - Contacts
       summary: Retrieve topics for a contact
@@ -1528,6 +2018,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/GetContactTopicsResponseSuccess'
     patch:
+      operationId: contacts/update-topics
       tags:
         - Contacts
       summary: Update topics for a contact
@@ -1552,6 +2043,7 @@ paths:
                 $ref: '#/components/schemas/UpdateContactTopicsResponseSuccess'
   /logs:
     get:
+      operationId: logs/list
       tags:
         - Logs
       summary: Retrieve a list of logs
@@ -1568,6 +2060,7 @@ paths:
                 $ref: '#/components/schemas/ListLogsResponse'
   /logs/{log_id}:
     get:
+      operationId: logs/get
       tags:
         - Logs
       summary: Retrieve a single log
@@ -1588,6 +2081,7 @@ paths:
                 $ref: '#/components/schemas/Log'
   /automations:
     post:
+      operationId: automations/create
       tags:
         - Automations
       summary: Create an automation
@@ -1604,6 +2098,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateAutomationResponse'
     get:
+      operationId: automations/list
       tags:
         - Automations
       summary: Retrieve a list of automations
@@ -1629,6 +2124,7 @@ paths:
                 $ref: '#/components/schemas/ListAutomationsResponse'
   /automations/{automation_id}:
     get:
+      operationId: automations/get
       tags:
         - Automations
       summary: Retrieve a single automation
@@ -1648,6 +2144,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Automation'
     patch:
+      operationId: automations/update
       tags:
         - Automations
       summary: Update an automation
@@ -1672,6 +2169,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/PatchAutomationResponse'
     delete:
+      operationId: automations/remove
       tags:
         - Automations
       summary: Delete an automation
@@ -1690,8 +2188,30 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/DeleteAutomationResponse'
+  /automations/{automation_id}/duplicate:
+    post:
+      operationId: automations/duplicate
+      tags:
+        - Automations
+      summary: Duplicate an automation
+      parameters:
+        - name: automation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: The ID of the automation.
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DuplicateAutomationResponse'
   /automations/{automation_id}/stop:
     post:
+      operationId: automations/stop
       tags:
         - Automations
       summary: Stop an automation
@@ -1712,6 +2232,7 @@ paths:
                 $ref: '#/components/schemas/StopAutomationResponse'
   /automations/{automation_id}/runs:
     get:
+      operationId: automations/list-runs
       tags:
         - Automations
       summary: Retrieve a list of automation runs
@@ -1741,6 +2262,7 @@ paths:
                 $ref: '#/components/schemas/ListAutomationRunsResponse'
   /automations/{automation_id}/runs/{run_id}:
     get:
+      operationId: automations/get-run
       tags:
         - Automations
       summary: Retrieve a single automation run
@@ -1768,6 +2290,7 @@ paths:
                 $ref: '#/components/schemas/AutomationRun'
   /events:
     post:
+      operationId: events/create
       tags:
         - Events
       summary: Create an event
@@ -1784,6 +2307,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/CreateEventResponse'
     get:
+      operationId: events/list
       tags:
         - Events
       summary: Retrieve a list of events
@@ -1800,6 +2324,7 @@ paths:
                 $ref: '#/components/schemas/ListEventsResponse'
   /events/send:
     post:
+      operationId: events/send
       tags:
         - Events
       summary: Send an event
@@ -1817,6 +2342,7 @@ paths:
                 $ref: '#/components/schemas/SendEventResponse'
   /events/{identifier}:
     get:
+      operationId: events/get
       tags:
         - Events
       summary: Retrieve a single event
@@ -1835,6 +2361,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/Event'
     patch:
+      operationId: events/update
       tags:
         - Events
       summary: Update an event
@@ -1858,6 +2385,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/UpdateEventResponse'
     delete:
+      operationId: events/remove
       tags:
         - Events
       summary: Delete an event
@@ -1875,6 +2403,128 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/RemoveEventResponse'
+  /suppressions:
+    post:
+      operationId: suppressions/add
+      tags:
+        - Suppressions
+      summary: Create a suppression
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateSuppressionOptions'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateSuppressionResponseSuccess'
+    get:
+      operationId: suppressions/list
+      tags:
+        - Suppressions
+      summary: Retrieve a list of suppressions
+      parameters:
+        - name: origin
+          in: query
+          required: false
+          schema:
+            type: string
+            enum:
+              - bounce
+              - complaint
+              - manual
+          description: Filter suppressions by origin.
+        - $ref: '#/components/parameters/PaginationLimit'
+        - $ref: '#/components/parameters/PaginationAfter'
+        - $ref: '#/components/parameters/PaginationBefore'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ListSuppressionsResponseSuccess'
+  /suppressions/batch/add:
+    post:
+      operationId: suppressions/batch-add
+      tags:
+        - Suppressions
+      summary: Add up to 100 suppressions at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchAddSuppressionsOptions'
+      responses:
+        '201':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchAddSuppressionsResponseSuccess'
+  /suppressions/batch/remove:
+    post:
+      operationId: suppressions/batch-remove
+      tags:
+        - Suppressions
+      summary: Remove up to 100 suppressions at once
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRemoveSuppressionsOptions'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BatchRemoveSuppressionsResponseSuccess'
+  /suppressions/{suppression}:
+    get:
+      operationId: suppressions/get
+      tags:
+        - Suppressions
+      summary: Retrieve a single suppression by ID or email
+      parameters:
+        - name: suppression
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Suppression ID or email address.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GetSuppressionResponseSuccess'
+    delete:
+      operationId: suppressions/remove
+      tags:
+        - Suppressions
+      summary: Remove a single suppression by ID or email
+      parameters:
+        - name: suppression
+          in: path
+          required: true
+          schema:
+            type: string
+          description: The Suppression ID or email address.
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemoveSuppressionResponseSuccess'
 webhooks:
   email.sent:
     post:
@@ -2287,6 +2937,27 @@ components:
         scheduled_at:
           type: string
           description: Schedule email to be sent later. The date should be in ISO 8601 format.
+    ShareEmailOptions:
+      type: object
+      properties:
+        expires_in:
+          type: string
+          description: How long the link stays valid for, as a duration like `10m`, `2 hours`, or `1 day`. Defaults to `48h` and cannot exceed 48 hours.
+    ShareEmailResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: The type of object.
+          example: 'email'
+        id:
+          type: string
+          description: The ID of the email.
+          example: '4ef9a417-02e9-4d39-ad75-9611e0fcc33c'
+        url:
+          type: string
+          description: The shareable link, valid until it expires.
+          example: 'https://resend.com/shared?token=eyJhbGciOiJIUzI1NiJ9...'
     Email:
       type: object
       properties:
@@ -2314,9 +2985,8 @@ components:
           example: 'Acme <onboarding@resend.dev>'
         created_at:
           type: string
-          format: date-time
           description: The date and time the email was created.
-          example: '2023-04-03T22:13:42.674981+00:00'
+          example: '2023-04-03 22:13:42.674981+00'
         subject:
           type: string
           description: The subject line of the email.
@@ -2376,6 +3046,81 @@ components:
           description: Array containing email information.
           items:
             $ref: '#/components/schemas/Email'
+    GetEmailsMetricsResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: 'metrics'
+        start_date:
+          type: string
+          description: The start of the requested date range, as an ISO 8601 datetime.
+          example: '2026-07-01T00:00:00.000Z'
+        end_date:
+          type: string
+          description: The end of the requested date range, as an ISO 8601 datetime.
+          example: '2026-07-08T00:00:00.000Z'
+        metrics:
+          type: array
+          description: The metrics included in the response.
+          items:
+            type: string
+        dimensions:
+          type: array
+          description: The dimensions the response is broken down by.
+          items:
+            type: string
+            enum:
+              - period
+              - domain
+              - email
+              - broadcast
+        granularity:
+          type: string
+          enum:
+            - hourly
+            - daily
+            - weekly
+            - monthly
+          description: The bucket size used when `period` is in `dimensions`.
+        totals:
+          type: object
+          description: The requested metrics, totaled over the whole date range.
+          additionalProperties:
+            type: number
+        data:
+          type: array
+          description: One row per unique combination of the requested `dimensions`. Omitted when `dimensions` is empty.
+          items:
+            $ref: '#/components/schemas/EmailMetricsDataRow'
+    EmailMetricsDataRow:
+      type: object
+      description: A single breakdown row. Which dimension fields are present depends on the requested `dimensions`; which metric fields are present depends on the requested `metrics`.
+      properties:
+        period:
+          type: string
+          description: Present when `period` is in `dimensions`.
+        domain_id:
+          type: string
+          format: uuid
+          description: Present when `domain` is in `dimensions`.
+        domain_name:
+          type: string
+          description: Present when `domain` is in `dimensions`.
+        email_id:
+          type: string
+          format: uuid
+          description: Present when `email` is in `dimensions`.
+        broadcast_id:
+          type: string
+          format: uuid
+          description: Present when `broadcast` is in `dimensions`.
+        broadcast_name:
+          type: string
+          description: Present when `broadcast` is in `dimensions`.
+      additionalProperties:
+        type: number
     CreateBatchEmailsResponse:
       type: object
       properties:
@@ -2452,8 +3197,8 @@ components:
           description: The name of the domain.
         created_at:
           type: string
-          format: date-time
           description: The date and time the domain was created.
+          example: '2023-10-06 23:47:56.678+00'
         status:
           type: string
           enum:
@@ -2569,9 +3314,8 @@ components:
           example: 'not_started'
         created_at:
           type: string
-          format: date-time
           description: The date and time the domain was created.
-          example: '2023-04-26T20:21:26.347412+00:00'
+          example: '2023-04-26 20:21:26.347412+00'
         region:
           type: string
           description: The region where the domain is hosted.
@@ -2702,14 +3446,12 @@ components:
           example: null
         created_at:
           type: string
-          format: date-time
           description: The date and time the claim was created.
-          example: '2023-04-26T20:21:26.347412+00:00'
+          example: '2023-04-26 20:21:26.347412+00'
         expires_at:
           type: string
-          format: date-time
           description: The date and time the claim expires if not verified.
-          example: '2023-05-03T20:21:26.347412+00:00'
+          example: '2023-05-03 20:21:26.347412+00'
     VerifyDomainResponse:
       type: object
       properties:
@@ -2760,13 +3502,18 @@ components:
           example: 'not_started'
         created_at:
           type: string
-          format: date-time
           description: The date and time the domain was created.
-          example: '2023-04-26T20:21:26.347412+00:00'
+          example: '2023-04-26 20:21:26.347412+00'
         region:
           type: string
           description: The region where the domain is hosted.
           example: 'us-east-1'
+        open_tracking:
+          type: boolean
+          description: Whether open tracking is enabled for this domain.
+        click_tracking:
+          type: boolean
+          description: Whether click tracking is enabled for this domain.
         capabilities:
           $ref: '#/components/schemas/DomainCapabilities'
     UpdateDomainResponseSuccess:
@@ -2847,12 +3594,80 @@ components:
           description: The name of the API key.
         created_at:
           type: string
-          format: date-time
           description: The date and time the API key was created.
+          example: '2023-10-06 23:47:56.678+00'
         last_used_at:
           type: [string, "null"]
-          format: date-time
           description: The date and time the API key was last used.
+          example: '2023-10-06 23:47:56.678+00'
+    ListOAuthGrantsResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: 'list'
+        has_more:
+          type: boolean
+          description: Indicates if there are more results available.
+          example: false
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/OAuthGrant'
+    OAuthGrant:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the OAuth grant.
+        client_id:
+          type: string
+          description: The ID of the OAuth client the grant was issued to.
+        scopes:
+          type: array
+          items:
+            type: string
+          description: The scopes granted to the OAuth client.
+        created_at:
+          type: string
+          description: The date and time the OAuth grant was created.
+          example: '2023-10-06 23:47:56.678+00'
+        revoked_at:
+          type: [string, "null"]
+          description: The date and time the OAuth grant was revoked, or null if it is still active.
+          example: '2023-10-06 23:47:56.678+00'
+        revoked_reason:
+          type: [string, "null"]
+          description: The reason the OAuth grant was revoked, or null if it is still active.
+        client:
+          type: object
+          description: The OAuth client the grant was issued to.
+          properties:
+            name:
+              type: string
+              description: The name of the OAuth client.
+            logo_uri:
+              type: [string, "null"]
+              description: The URL of the OAuth client's logo.
+    RevokeOAuthGrantResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: The type of object.
+          example: 'oauth_grant'
+        id:
+          type: string
+          description: The ID of the OAuth grant.
+        revoked_at:
+          type: string
+          format: date-time
+          description: The date and time the OAuth grant was revoked.
+          example: '2023-10-06T23:47:56.678Z'
+        revoked_reason:
+          type: string
+          description: The reason the OAuth grant was revoked.
     DeleteApiKeyResponse:
       type: object
       properties:
@@ -2867,6 +3682,24 @@ components:
           type: boolean
           description: Indicates whether the API key was successfully deleted.
           example: true
+    UpdateApiKeyRequest:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The API key name.
+    UpdateApiKeyResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: The type of object.
+          example: 'api_key'
+        id:
+          type: string
+          description: The ID of the API key.
     CreateAudienceOptions:
       type: object
       deprecated: true
@@ -2911,7 +3744,7 @@ components:
         created_at:
           type: string
           description: The date that the object was created.
-          example: 2023-10-06T22:59:55.977Z
+          example: '2023-10-06 22:59:55.977+00'
     RemoveAudienceResponseSuccess:
       type: object
       deprecated: true
@@ -2952,9 +3785,8 @@ components:
                 example: Registered Users
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the audience was created.
-                example: "2023-10-06T22:59:55.977Z"
+                example: "2023-10-06 22:59:55.977+00"
     CreateContactOptions:
       type: object
       required:
@@ -3032,18 +3864,17 @@ components:
           description: Email address of the contact.
           example: steve.wozniak@gmail.com
         first_name:
-          type: string
+          type: [string, "null"]
           description: First name of the contact.
           example: Steve
         last_name:
-          type: string
+          type: [string, "null"]
           description: Last name of the contact.
           example: Wozniak
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the contact was created.
-          example: "2023-10-06T23:47:56.678Z"
+          example: "2023-10-06 23:47:56.678+00"
         unsubscribed:
           type: boolean
           description: Indicates if the contact is unsubscribed.
@@ -3123,18 +3954,17 @@ components:
                 description: Email address of the contact.
                 example: steve.wozniak@gmail.com
               first_name:
-                type: string
+                type: [string, "null"]
                 description: First name of the contact.
                 example: Steve
               last_name:
-                type: string
+                type: [string, "null"]
                 description: Last name of the contact.
                 example: Wozniak
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the contact was created.
-                example: "2023-10-06T23:47:56.678Z"
+                example: "2023-10-06 23:47:56.678+00"
               unsubscribed:
                 type: boolean
                 description: Indicates if the contact is unsubscribed.
@@ -3226,14 +4056,12 @@ components:
           example: completed
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the contact import was created.
-          example: "2023-10-06T23:47:56.678Z"
+          example: "2023-10-06 23:47:56.678+00"
         completed_at:
           type: [string, "null"]
-          format: date-time
           description: Timestamp indicating when the contact import completed.
-          example: "2023-10-06T23:50:56.678Z"
+          example: "2023-10-06 23:50:56.678+00"
         counts:
           $ref: '#/components/schemas/ContactImportCounts'
     GetContactImportResponseSuccess:
@@ -3355,19 +4183,16 @@ components:
                 example: 'draft'
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the broadcast was created.
-                example: "2023-10-06T22:59:55.977Z"
+                example: "2023-10-06 22:59:55.977+00"
               scheduled_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the broadcast is scheduled to be sent.
-                example: "2023-10-06T22:59:55.977Z"
+                example: "2023-10-06 22:59:55.977+00"
               sent_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the broadcast was sent.
-                example: "2023-10-06T22:59:55.977Z"
+                example: "2023-10-06 22:59:55.977+00"
               topic_id:
                 type: string
                 description: The topic ID that the broadcast is scoped to.
@@ -3413,19 +4238,16 @@ components:
           example: 'draft'
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the broadcast was created.
-          example: "2023-10-06T22:59:55.977Z"
+          example: "2023-10-06 22:59:55.977+00"
         scheduled_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the broadcast is scheduled to be sent.
-          example: "2023-10-06T22:59:55.977Z"
+          example: "2023-10-06 22:59:55.977+00"
         sent_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the broadcast was sent.
-          example: "2023-10-06T22:59:55.977Z"
+          example: "2023-10-06 22:59:55.977+00"
         text:
           type: [string, "null"]
           description: The plain text version of the broadcast content.
@@ -3513,6 +4335,104 @@ components:
           type: string
           description: The ID of the broadcast.
           example: 78261eea-8f8b-4381-83c6-79fa7120f1cf
+    CancelBroadcastResponseSuccess:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the broadcast.
+          example: 78261eea-8f8b-4381-83c6-79fa7120f1cf
+        object:
+          type: string
+          description: The object type of the response.
+          example: broadcast
+    ListBroadcastRecipientsResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: list
+        has_more:
+          type: boolean
+          description: Indicates if there are more results available.
+          example: false
+        data:
+          type: array
+          description: Array containing broadcast recipients.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Opaque cursor identifying this row, used for pagination.
+                example: b2Zmc2V0OjA
+              contact_id:
+                type: [string, "null"]
+                description: The ID of the contact associated with this recipient, if one exists.
+                example: e169aa45-1ecf-4183-9955-b1499d5701d3
+              email:
+                type: string
+                description: The recipient's email address.
+                example: steve.wozniak@gmail.com
+              count:
+                type: integer
+                description: The number of times this recipient triggered the event. Only present when `type` is `opened` or `clicked`.
+                example: 3
+              bounce_type:
+                type: string
+                enum:
+                  - permanent
+                  - transient
+                  - undetermined
+                description: The type of bounce. Only present when `type` is `bounced`.
+              clicked_links:
+                type: array
+                description: The links this recipient clicked. Only present when `type` is `clicked`.
+                items:
+                  type: object
+                  properties:
+                    url:
+                      type: string
+                      description: The clicked URL.
+                      example: https://resend.com/pricing
+                    clicks:
+                      type: integer
+                      description: The number of times this recipient clicked this URL.
+                      example: 2
+    ListBroadcastClickedLinksResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: list
+        has_more:
+          type: boolean
+          description: Indicates if there are more results available.
+          example: false
+        data:
+          type: array
+          description: Array containing the broadcast's clicked links.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: An opaque cursor for this row, used only for pagination. It does not identify any entity in Resend.
+                example: b2Zmc2V0OjA
+              url:
+                type: string
+                description: The URL that was clicked.
+                example: https://resend.com/pricing
+              clicks:
+                type: integer
+                description: Total number of clicks on this URL.
+                example: 42
+              unique_clicks:
+                type: integer
+                description: Number of unique clicks on this URL.
+                example: 30
     RetrievedAttachment:
       type: object
       properties:
@@ -3663,6 +4583,12 @@ components:
             type: string
           description: The reply-to addresses.
           example: []
+        received_for:
+          type: array
+          items:
+            type: string
+          description: The recipient addresses the email was forwarded for, taken from the `for` clause of the message's `Received` headers.
+          example: ['forwarded@example.com']
         html:
           type: [string, "null"]
           description: The HTML content of the email.
@@ -3679,7 +4605,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the email was received.
-          example: '2023-10-06:23:47:56.678Z'
+          example: '2023-10-06T23:47:56.678Z'
         attachments:
           type: array
           description: Array of attachments.
@@ -3861,9 +4787,8 @@ components:
           example: 'enabled'
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the webhook was created.
-          example: '2023-10-06T23:47:56.678Z'
+          example: '2023-10-06 23:47:56.678+00'
         signing_secret:
           type: string
           description: The secret key used to verify webhook payloads.
@@ -3906,9 +4831,8 @@ components:
                 example: 'enabled'
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the webhook was created.
-                example: '2023-10-06T23:47:56.678Z'
+                example: '2023-10-06 23:47:56.678+00'
     UpdateWebhookRequest:
       type: object
       properties:
@@ -3958,6 +4882,125 @@ components:
           type: boolean
           description: Indicates whether the webhook was successfully deleted.
           example: true
+    ListWebhookEventsResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: 'list'
+        has_more:
+          type: boolean
+          description: Indicates if there are more results available.
+          example: false
+        data:
+          type: array
+          description: Array containing webhook event information.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: The ID of the webhook event.
+                example: 'msg_1srOrx2ZWZBpBUvZwXKQmoEYga2'
+              type:
+                type: string
+                description: The type of the event.
+                example: 'email.sent'
+              created_at:
+                type: string
+                format: date-time
+                description: Timestamp indicating when the event was created.
+                example: '2026-08-22T15:28:00.000Z'
+              status:
+                type: string
+                enum:
+                  - pending
+                  - attempting
+                  - success
+                  - failed
+                description: The delivery status of the event for this webhook.
+                example: 'success'
+    GetWebhookEventResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: The type of object.
+          example: 'webhook_event'
+        id:
+          type: string
+          description: The ID of the webhook event.
+          example: 'msg_1srOrx2ZWZBpBUvZwXKQmoEYga2'
+        type:
+          type: string
+          description: The type of the event.
+          example: 'email.sent'
+        created_at:
+          type: string
+          format: date-time
+          description: Timestamp indicating when the event was created.
+          example: '2026-08-22T15:28:00.000Z'
+        status:
+          type: string
+          enum:
+            - pending
+            - attempting
+            - success
+            - failed
+          description: The delivery status of the event for this webhook.
+          example: 'attempting'
+        next_attempt_at:
+          type: [string, "null"]
+          format: date-time
+          description: Timestamp of the next scheduled delivery attempt, or null when none is scheduled. Always null once the event has succeeded or permanently failed.
+          example: '2026-08-22T15:33:00.000Z'
+        payload:
+          type: object
+          description: The event payload sent to the webhook endpoint.
+          example:
+            type: 'email.sent'
+            created_at: '2026-08-22T15:28:00.000Z'
+            data:
+              email_id: '571f1f42-1c2d-4b1f-8f8e-8b3b5b3b5b3b'
+              from: 'onboarding@resend.dev'
+              to: ['delivered@resend.dev']
+              subject: 'Welcome'
+              created_at: '2026-08-22T15:27:59.000Z'
+    ListWebhookEventAttemptsResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: 'list'
+        has_more:
+          type: boolean
+          description: Indicates if there are more results available.
+          example: false
+        data:
+          type: array
+          description: Array containing webhook event attempt information.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: The ID of the webhook event attempt.
+                example: 'atmpt_1srOrx2ZWZBpBUvZwXKQmoEYga2'
+              http_status_code:
+                type: integer
+                description: The HTTP status code returned by the webhook endpoint.
+                example: 200
+              response:
+                type: string
+                description: The response body returned by the webhook endpoint.
+                example: '{"ok":true}'
+              sent_at:
+                type: string
+                format: date-time
+                description: Timestamp indicating when the attempt was sent.
+                example: '2026-08-22T15:33:12.000Z'
     TemplateVariable:
       type: object
       properties:
@@ -3982,12 +5025,12 @@ components:
               items: {}
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the variable was created.
+          example: '2023-10-06 23:47:56.678+00'
         updated_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the variable was last updated.
+          example: '2023-10-06 23:47:56.678+00'
       required:
         - key
         - type
@@ -4055,20 +5098,20 @@ components:
             $ref: '#/components/schemas/TemplateVariable'
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the template was created.
+          example: '2023-10-06 23:47:56.678+00'
         updated_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the template was last updated.
+          example: '2023-10-06 23:47:56.678+00'
         status:
           type: string
           description: The publication status of the template.
           enum: [draft, published]
         published_at:
           type: [string, "null"]
-          format: date-time
           description: Timestamp indicating when the template was published.
+          example: '2023-10-06 23:47:56.678+00'
         has_unpublished_versions:
           type: boolean
           description: Indicates whether the template has unpublished versions.
@@ -4087,16 +5130,16 @@ components:
           enum: [draft, published]
         published_at:
           type: [string, "null"]
-          format: date-time
           description: Timestamp indicating when the template was published.
+          example: '2023-10-06 23:47:56.678+00'
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the template was created.
+          example: '2023-10-06 23:47:56.678+00'
         updated_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the template was last updated.
+          example: '2023-10-06 23:47:56.678+00'
         alias:
           type: string
           description: The alias of the template.
@@ -4282,8 +5325,27 @@ components:
           description: Filter conditions for the segment.
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the segment was created.
+          example: '2023-10-06 23:47:56.678+00'
+    UpdateSegmentOptions:
+      type: object
+      required:
+        - name
+      properties:
+        name:
+          type: string
+          description: The name of the segment.
+    UpdateSegmentResponseSuccess:
+      type: object
+      properties:
+        id:
+          type: string
+          description: The ID of the segment.
+          example: 78261eea-8f8b-4381-83c6-79fa7120f1cf
+        object:
+          type: string
+          description: The object type.
+          example: segment
     ListSegmentsResponseSuccess:
       type: object
       properties:
@@ -4312,8 +5374,8 @@ components:
                 deprecated: true
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the segment was created.
+                example: '2023-10-06 23:47:56.678+00'
     RemoveSegmentResponseSuccess:
       type: object
       properties:
@@ -4399,8 +5461,8 @@ components:
           description: The visibility of the topic.
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the topic was created.
+          example: '2023-10-06 23:47:56.678+00'
     ListTopicsResponseSuccess:
       type: object
       properties:
@@ -4440,8 +5502,8 @@ components:
                 description: The visibility of the topic.
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the topic was created.
+                example: '2023-10-06 23:47:56.678+00'
     UpdateTopicOptions:
       type: object
       properties:
@@ -4543,8 +5605,8 @@ components:
           example: Acme Corp
         created_at:
           type: string
-          format: date-time
           description: Timestamp indicating when the contact property was created.
+          example: '2023-10-06 23:47:56.678+00'
     ListContactPropertiesResponseSuccess:
       type: object
       properties:
@@ -4577,8 +5639,8 @@ components:
                 description: The default value when the property is not set for a contact.
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the contact property was created.
+                example: '2023-10-06 23:47:56.678+00'
     UpdateContactPropertyOptions:
       type: object
       properties:
@@ -4650,8 +5712,8 @@ components:
                 description: Name of the segment.
               created_at:
                 type: string
-                format: date-time
                 description: Timestamp indicating when the contact was added to the segment.
+                example: '2023-10-06 23:47:56.678+00'
     RemoveContactFromSegmentResponseSuccess:
       type: object
       properties:
@@ -4753,8 +5815,8 @@ components:
           description: The log ID.
         created_at:
           type: string
-          format: date-time
           description: The date the log was created.
+          example: '2023-10-06 23:47:56.678+00'
         endpoint:
           type: string
           description: The API endpoint that was called.
@@ -4787,8 +5849,8 @@ components:
           description: The log ID.
         created_at:
           type: string
-          format: date-time
           description: The date the log was created.
+          example: '2023-10-06 23:47:56.678+00'
         endpoint:
           type: string
           description: The API endpoint that was called.
@@ -4975,9 +6037,11 @@ components:
         created_at:
           type: string
           description: The date and time the automation was created.
+          example: '2023-10-06 23:47:56.678+00'
         updated_at:
           type: string
           description: The date and time the automation was last updated.
+          example: '2023-10-06 23:47:56.678+00'
         steps:
           type: array
           description: The steps in the active version of the automation.
@@ -5006,9 +6070,11 @@ components:
         created_at:
           type: string
           description: The date and time the automation was created.
+          example: '2023-10-06 23:47:56.678+00'
         updated_at:
           type: string
           description: The date and time the automation was last updated.
+          example: '2023-10-06 23:47:56.678+00'
     ListAutomationsResponse:
       type: object
       properties:
@@ -5076,6 +6142,16 @@ components:
           type: boolean
           description: Indicates whether the automation was successfully deleted.
           example: true
+    DuplicateAutomationResponse:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: automation
+        id:
+          type: string
+          description: The ID of the duplicated automation.
     StopAutomationResponse:
       type: object
       properties:
@@ -5115,9 +6191,11 @@ components:
         started_at:
           type: [string, "null"]
           description: The date and time the step started executing.
+          example: '2023-10-06 23:47:56.678+00'
         completed_at:
           type: [string, "null"]
           description: The date and time the step completed executing.
+          example: '2023-10-06 23:47:56.678+00'
         output:
           type: [object, "null"]
           description: The output produced by the step, if any.
@@ -5127,6 +6205,7 @@ components:
         created_at:
           type: string
           description: The date and time the step record was created.
+          example: '2023-10-06 23:47:56.678+00'
     AutomationRun:
       type: object
       properties:
@@ -5148,12 +6227,15 @@ components:
         started_at:
           type: [string, "null"]
           description: The date and time the run started.
+          example: '2023-10-06 23:47:56.678+00'
         completed_at:
           type: [string, "null"]
           description: The date and time the run completed.
+          example: '2023-10-06 23:47:56.678+00'
         created_at:
           type: string
           description: The date and time the run was created.
+          example: '2023-10-06 23:47:56.678+00'
         steps:
           type: array
           description: The steps executed in this run, sorted in graph order.
@@ -5176,12 +6258,15 @@ components:
         started_at:
           type: [string, "null"]
           description: The date and time the run started.
+          example: '2023-10-06 23:47:56.678+00'
         completed_at:
           type: [string, "null"]
           description: The date and time the run completed.
+          example: '2023-10-06 23:47:56.678+00'
         created_at:
           type: string
           description: The date and time the run was created.
+          example: '2023-10-06 23:47:56.678+00'
     ListAutomationRunsResponse:
       type: object
       properties:
@@ -5217,9 +6302,11 @@ components:
         created_at:
           type: string
           description: The date and time the event was created.
+          example: '2023-10-06 23:47:56.678+00'
         updated_at:
           type: [string, "null"]
           description: The date and time the event was last updated.
+          example: '2023-10-06 23:47:56.678+00'
     EventSummary:
       type: object
       properties:
@@ -5236,9 +6323,11 @@ components:
         created_at:
           type: string
           description: The date and time the event was created.
+          example: '2023-10-06 23:47:56.678+00'
         updated_at:
           type: [string, "null"]
           description: The date and time the event was last updated.
+          example: '2023-10-06 23:47:56.678+00'
     CreateEventRequest:
       type: object
       required:
@@ -5393,6 +6482,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the click occurred.
+          example: '2023-10-06T23:47:56.678Z'
         userAgent:
           type: string
           description: User agent string of the browser that clicked the link.
@@ -5516,6 +6606,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the email was created.
+          example: '2023-10-06T23:47:56.678Z'
         from:
           type: string
           description: Sender email address and name in the format `Name <email@domain.com>`.
@@ -5607,6 +6698,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the email was received.
+          example: '2023-10-06T23:47:56.678Z'
         from:
           type: string
           description: Sender email address.
@@ -5631,6 +6723,12 @@ components:
           items:
             type: string
           description: CC recipients.
+        received_for:
+          type: array
+          items:
+            type: string
+          description: The recipient addresses the email was forwarded for, taken from the `for` clause of the message's `Received` headers.
+          example: ['forwarded@example.com']
         attachments:
           type: array
           items:
@@ -5660,18 +6758,20 @@ components:
           type: string
           format: date-time
           description: Timestamp when the contact was created.
+          example: '2023-10-06T23:47:56.678Z'
         updated_at:
           type: string
           format: date-time
           description: Timestamp when the contact was last updated.
+          example: '2023-10-06T23:47:56.678Z'
         email:
           type: string
           description: Contact's email address.
         first_name:
-          type: string
+          type: [string, "null"]
           description: Contact's first name.
         last_name:
-          type: string
+          type: [string, "null"]
           description: Contact's last name.
         unsubscribed:
           type: boolean
@@ -5706,6 +6806,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the domain was created.
+          example: '2023-10-06T23:47:56.678Z'
         region:
           type: string
           enum:
@@ -5734,6 +6835,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/OutboundEmailEventData'
     EmailDeliveredEvent:
@@ -5751,6 +6853,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/OutboundEmailEventData'
     EmailDeliveryDelayedEvent:
@@ -5768,6 +6871,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/OutboundEmailEventData'
     EmailBouncedEvent:
@@ -5785,6 +6889,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/EmailBouncedEventData'
     EmailComplainedEvent:
@@ -5802,6 +6907,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/OutboundEmailEventData'
     EmailOpenedEvent:
@@ -5819,6 +6925,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/OutboundEmailEventData'
     EmailClickedEvent:
@@ -5836,6 +6943,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/EmailClickedEventData'
     EmailFailedEvent:
@@ -5853,6 +6961,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/EmailFailedEventData'
     EmailScheduledEvent:
@@ -5870,6 +6979,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/OutboundEmailEventData'
     EmailSuppressedEvent:
@@ -5887,6 +6997,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/EmailSuppressedEventData'
     EmailReceivedEvent:
@@ -5904,6 +7015,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/EmailReceivedEventData'
     ContactCreatedEvent:
@@ -5921,6 +7033,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/ContactEventData'
     ContactUpdatedEvent:
@@ -5938,6 +7051,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/ContactEventData'
     ContactDeletedEvent:
@@ -5955,6 +7069,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/ContactEventData'
     DomainCreatedEvent:
@@ -5972,6 +7087,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/DomainEventData'
     DomainUpdatedEvent:
@@ -5989,6 +7105,7 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/DomainEventData'
     DomainDeletedEvent:
@@ -6006,5 +7123,188 @@ components:
           type: string
           format: date-time
           description: Timestamp when the event was emitted.
+          example: '2023-10-06T23:47:56.678Z'
         data:
           $ref: '#/components/schemas/DomainEventData'
+    CreateSuppressionOptions:
+      type: object
+      required:
+        - email
+      properties:
+        email:
+          type: string
+          description: Email address to suppress.
+          example: steve.wozniak@gmail.com
+    CreateSuppressionResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: suppression
+        id:
+          type: string
+          description: Unique identifier for the created suppression.
+          example: e169aa45-1ecf-4183-9955-b1499d5701d3
+    BatchAddSuppressionsOptions:
+      type: object
+      required:
+        - emails
+      properties:
+        emails:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+          description: Email addresses to suppress.
+          example:
+            - steve.wozniak@gmail.com
+    BatchAddSuppressionsResponseSuccess:
+      type: object
+      properties:
+        data:
+          type: array
+          description: Array containing the created suppressions.
+          items:
+            type: object
+            properties:
+              object:
+                type: string
+                description: Type of the object.
+                example: suppression
+              id:
+                type: string
+                description: Unique identifier for the suppression.
+                example: e169aa45-1ecf-4183-9955-b1499d5701d3
+    BatchRemoveSuppressionsOptions:
+      type: object
+      description: Provide either `emails` or `ids`, but not both.
+      properties:
+        emails:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+          description: Email addresses to remove from the suppression list.
+          example:
+            - steve.wozniak@gmail.com
+        ids:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items:
+            type: string
+          description: Suppression IDs to remove from the suppression list.
+          example:
+            - e169aa45-1ecf-4183-9955-b1499d5701d3
+    BatchRemoveSuppressionsResponseSuccess:
+      type: object
+      properties:
+        data:
+          type: array
+          description: Array containing the removed suppressions.
+          items:
+            type: object
+            properties:
+              object:
+                type: string
+                description: Type of the object.
+                example: suppression
+              id:
+                type: string
+                description: Unique identifier for the suppression.
+                example: e169aa45-1ecf-4183-9955-b1499d5701d3
+              deleted:
+                type: boolean
+                description: Indicates whether the suppression was successfully deleted.
+                example: true
+    RemoveSuppressionResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: suppression
+        id:
+          type: string
+          description: Unique identifier for the removed suppression.
+          example: e169aa45-1ecf-4183-9955-b1499d5701d3
+        deleted:
+          type: boolean
+          description: Indicates whether the suppression was successfully deleted.
+          example: true
+    GetSuppressionResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: suppression
+        id:
+          type: string
+          description: Unique identifier for the suppression.
+          example: e169aa45-1ecf-4183-9955-b1499d5701d3
+        email:
+          type: string
+          description: Email address that is suppressed.
+          example: steve.wozniak@gmail.com
+        origin:
+          type: string
+          enum:
+            - bounce
+            - complaint
+            - manual
+          description: Origin of the suppression.
+          example: manual
+        source_id:
+          type: string
+          nullable: true
+          description: Identifier of the event that caused the suppression, such as the email that bounced or complained.
+          example: 479e3145-dd38-476b-932c-529ceb705947
+        created_at:
+          type: string
+          description: Timestamp indicating when the suppression was created.
+          example: "2023-10-06 23:47:56.678+00"
+    ListSuppressionsResponseSuccess:
+      type: object
+      properties:
+        object:
+          type: string
+          description: Type of the response object.
+          example: list
+        has_more:
+          type: boolean
+          description: Indicates if there are more results available.
+        data:
+          type: array
+          description: Array containing suppression information.
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+                description: Unique identifier for the suppression.
+                example: e169aa45-1ecf-4183-9955-b1499d5701d3
+              email:
+                type: string
+                description: Email address that is suppressed.
+                example: steve.wozniak@gmail.com
+              origin:
+                type: string
+                enum:
+                  - bounce
+                  - complaint
+                  - manual
+                description: Origin of the suppression.
+                example: manual
+              source_id:
+                type: string
+                nullable: true
+                description: Identifier of the event that caused the suppression, such as the email that bounced or complained.
+                example: 479e3145-dd38-476b-932c-529ceb705947
+              created_at:
+                type: string
+                description: Timestamp indicating when the suppression was created.
+                example: "2023-10-06 23:47:56.678+00"

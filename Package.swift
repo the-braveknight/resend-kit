@@ -15,10 +15,10 @@ let package = Package(
         )
     ],
     dependencies: [
-        .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.10.4"),
-        .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.11.0"),
-        .package(url: "https://github.com/swift-server/swift-openapi-async-http-client", from: "1.4.0"),
-        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.32.0")
+        .package(url: "https://github.com/apple/swift-openapi-generator", from: "1.13.0"),
+        .package(url: "https://github.com/apple/swift-openapi-runtime", from: "1.12.0"),
+        .package(url: "https://github.com/swift-server/swift-openapi-async-http-client", from: "1.5.0"),
+        .package(url: "https://github.com/swift-server/async-http-client.git", from: "1.36.0")
     ],
     targets: [
         .target(

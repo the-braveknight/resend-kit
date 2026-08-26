@@ -23,7 +23,7 @@ The package is intentionally generator-backed. The goal is to stay aligned with 
 Add the package:
 
 ```swift
-.package(url: "https://github.com/the-braveknight/resend-kit", from: "0.1.0")
+.package(url: "https://github.com/the-braveknight/resend-kit", from: "1.1.0")
 ```
 
 Then add the product to your target:
@@ -178,25 +178,35 @@ This keeps most of the API generated, while working around the generator's binar
 
 `ResendClient` currently wraps the official spec surface that is present in this package, including:
 
-- emails
+- emails (send, batch, list, get, update, cancel, share, metrics)
 - email attachments
 - received emails
-- domains
+- domains and domain claims
 - API keys
+- OAuth grants
 - templates
-- audiences
+- audiences (deprecated upstream)
 - contacts
 - contact imports
-- broadcasts
-- webhooks
+- broadcasts (including cancel, recipients, clicked links)
+- webhooks, webhook events, and delivery attempts
 - segments
 - topics
 - contact properties
 - logs
-- automations
+- automations and automation runs
 - events
+- suppressions (single and batch)
 
 Generated schema types remain available directly under `Components.Schemas`.
+
+## Local Deviations From The Upstream Spec
+
+`openapi.yaml` is a verbatim copy of Resend's published document, with one deliberate local patch:
+
+- `SendEmailRequest` marks only `to` as required. Upstream lists `from` and `subject` as required, but Resend accepts requests without them when `template` is used, since the template supplies both. Without this patch the generated `SendEmailRequest` initializer would force callers to pass values that the API itself does not need.
+
+When refreshing `openapi.yaml` from upstream, re-apply that patch.
 
 ## Note About `updateEmail`
 
